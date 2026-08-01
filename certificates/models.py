@@ -53,7 +53,7 @@ class Student(models.Model):
     email = models.EmailField()
     cert_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
-    certificate_file = models.FileField(upload_to="certificates/", blank=True, null=True)
+    certificate_file = models.FileField(upload_to="certificates/", blank=True, null=True, storage=RawMediaCloudinaryStorage())
     error_message = models.CharField(max_length=300, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
