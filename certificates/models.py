@@ -1,6 +1,8 @@
 import uuid
 from django.db import models
 from cloudinary_storage.storage import MediaCloudinaryStorage, RawMediaCloudinaryStorage
+
+
 class Event(models.Model):
     """One hackathon / workshop / event for which certificates are generated."""
 
@@ -8,11 +10,9 @@ class Event(models.Model):
     organizer = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-   template_image = models.ImageField(upload_to="templates/", storage=MediaCloudinaryStorage())
-   excel_file = models.FileField(upload_to="excels/", blank=True, null=True, storage=RawMediaCloudinaryStorage())
+    template_image = models.ImageField(upload_to="templates/", storage=MediaCloudinaryStorage())
+    excel_file = models.FileField(upload_to="excels/", blank=True, null=True, storage=RawMediaCloudinaryStorage())
 
-    # Text placement, stored as PERCENTAGE of image width/height so it stays
-    # correct regardless of the image's actual pixel dimensions.
     name_x_percent = models.FloatField(default=50.0)
     name_y_percent = models.FloatField(default=50.0)
     font_size = models.PositiveIntegerField(default=48)
@@ -54,6 +54,14 @@ class Student(models.Model):
     cert_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     certificate_file = models.FileField(upload_to="certificates/", blank=True, null=True, storage=RawMediaCloudinaryStorage())
+    error_message = models.CharField(max_length=300, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} <{self.email}>"dinaryStorage())
     error_message = models.CharField(max_length=300, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
