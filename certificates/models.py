@@ -1,6 +1,6 @@
 import uuid
 from django.db import models
-
+from cloudinary_storage.storage import MediaCloudinaryStorage
 
 class Event(models.Model):
     """One hackathon / workshop / event for which certificates are generated."""
