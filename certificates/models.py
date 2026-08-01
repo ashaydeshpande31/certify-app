@@ -1,6 +1,5 @@
 import uuid
 from django.db import models
-from cloudinary_storage.storage import MediaCloudinaryStorage, RawMediaCloudinaryStorage
 
 
 class Event(models.Model):
@@ -8,8 +7,8 @@ class Event(models.Model):
     organizer = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    template_image = models.ImageField(upload_to="templates/", storage=MediaCloudinaryStorage())
-    excel_file = models.FileField(upload_to="excels/", blank=True, null=True, storage=RawMediaCloudinaryStorage())
+    template_image = models.ImageField(upload_to="templates/")
+    excel_file = models.FileField(upload_to="excels/", blank=True, null=True)
 
     name_x_percent = models.FloatField(default=50.0)
     name_y_percent = models.FloatField(default=50.0)
@@ -51,7 +50,7 @@ class Student(models.Model):
     email = models.EmailField()
     cert_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
-    certificate_file = models.FileField(upload_to="certificates/", blank=True, null=True, storage=RawMediaCloudinaryStorage())
+    certificate_file = models.FileField(upload_to="certificates/", blank=True, null=True)
     error_message = models.CharField(max_length=300, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
