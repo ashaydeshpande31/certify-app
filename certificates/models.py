@@ -9,7 +9,7 @@ class Event(models.Model):
     organizer = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    template_image = models.ImageField(upload_to="templates/")
+   template_image = models.ImageField(upload_to="templates/", storage=MediaCloudinaryStorage())
     excel_file = models.FileField(upload_to="excels/", blank=True, null=True)
 
     # Text placement, stored as PERCENTAGE of image width/height so it stays
