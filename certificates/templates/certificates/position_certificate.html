@@ -1,0 +1,125 @@
+{% extends "certificates/base.html" %}
+{% block title %}Position Name{% endblock %}
+{% block content %}
+
+<div class="section-head">
+  <h2>{{ event.name }} — place the name</h2>
+  <a href="{% url 'student_list' event.id %}" class="muted">Skip for now →</a>
+</div>
+
+<form method="post" id="position-form">
+  {% csrf_token %}
+  <div class="position-layout">
+
+    <div class="canvas-wrap">
+      <div class="canvas-hint">Click anywhere on the certificate to set where student names will appear.</div>
+      <div id="template-stage">
+        <img src="{{ event.template_image.url }}" id="template-img" alt="Certificate template">
+        <div id="name-marker">Ananya Sharma</div>
+      </div>
+    </div>
+
+    <div class="control-card">
+      <h3>Name style</h3>
+      <p class="muted" style="margin:0 0 16px;font-size:.85rem;">Adjust and watch the preview update.</p>
+
+      <label>Font size</label>
+      <input type="range" id="font_size" min="18" max="120" value="{{ event.font_size }}" style="width:100%;">
+
+      <label>Font style</label>
+      <select id="font_choice" name="font_choice">
+        <option value="serif" {% if event.font_choice == "serif" %}selected{% endif %}>Serif — Elegant</option>
+        <option value="sans" {% if event.font_choice == "sans" %}selected{% endif %}>Sans — Modern</option>
+        <option value="script" {% if event.font_choice == "script" %}selected{% endif %}>Bold Serif — Formal</option>
+      </select>
+
+      <label>Color</label>
+      <div class="swatches" id="color-swatches">
+        <div class="swatch active" style="background:#1B2A4A" data-color="#1B2A4A"></div>
+        <div class="swatch" style="background:#0D0D0D" data-color="#0D0D0D"></div>
+        <div class="swatch" style="background:#C9A227" data-color="#C9A227"></div>
+        <div class="swatch" style="background:#7A1F1F" data-color="#7A1F1F"></div>
+        <div class="swatch" style="background:#1F5C3F" data-color="#1F5C3F"></div>
+      </div>
+
+      <label>Alignment</label>
+      <div class="align-toggle" id="align-toggle">
+        <button type="button" data-align="left">Left</button>
+        <button type="button" data-align="center" class="active">Center</button>
+        <button type="button" data-align="right">Right</button>
+      </div>
+
+      <input type="hidden" name="name_x_percent" id="name_x_percent" value="{{ event.name_x_percent }}">
+      <input type="hidden" name="name_y_percent" id="name_y_percent" value="{{ event.name_y_percent }}">
+      <input type="hidden" name="font_size" id="font_size_hidden" value="{{ event.font_size }}">
+      <input type="hidden" name="font_color" id="font_color_hidden" value="{{ event.font_color }}">
+      <input type="hidden" name="text_align" id="text_align_hidden" value="{{ event.text_align }}">
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save layout →</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+const stage = document.getElementById('template-stage');
+const marker = document.getElementById('name-marker');
+const xField = document.getElementById('name_x_percent');
+const yField = document.getElementById('name_y_percent');
+const fontSizeSlider = document.getElementById('font_size');
+const fontSizeHidden = document.getElementById('font_size_hidden');
+const fontChoice = document.getElementById('font_choice');
+const colorHidden = document.getElementById('font_color_hidden');
+const alignHidden = document.getElementById('text_align_hidden');
+
+function placeMarker(xPercent, yPercent) {
+  marker.style.left = xPercent + '%';
+  marker.style.top = yPercent + '%';
+  xField.value = xPercent.toFixed(2);
+  yField.value = yPercent.toFixed(2);
+}
+
+// init marker at stored position
+placeMarker(parseFloat(xField.value), parseFloat(yField.value));
+
+stage.addEventListener('click', function (e) {
+  const rect = stage.getBoundingClientRect();
+  const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+  const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+  placeMarker(Math.max(0, Math.min(100, xPercent)), Math.max(0, Math.min(100, yPercent)));
+});
+
+fontSizeSlider.addEventListener('input', function () {
+  marker.style.fontSize = (this.value / 1.6) + 'px';
+  fontSizeHidden.value = this.value;
+});
+marker.style.fontSize = (fontSizeSlider.value / 1.6) + 'px';
+
+fontChoice.addEventListener('change', function () {
+  const map = { serif: "'Fraunces', serif", sans: "'Inter', sans-serif", script: "'Fraunces', serif" };
+  marker.style.fontFamily = map[this.value];
+});
+marker.style.fontFamily = "'Fraunces', serif";
+
+document.querySelectorAll('.swatch').forEach(function (sw) {
+  sw.addEventListener('click', function () {
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    this.classList.add('active');
+    marker.style.color = this.dataset.color;
+    colorHidden.value = this.dataset.color;
+  });
+});
+marker.style.color = colorHidden.value;
+
+document.querySelectorAll('#align-toggle button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('#align-toggle button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    alignHidden.value = this.dataset.align;
+    marker.style.textAlign = this.dataset.align;
+  });
+});
+</script>
+
+{% endblock %}

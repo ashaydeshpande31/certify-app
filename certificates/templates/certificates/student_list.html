@@ -1,0 +1,72 @@
+{% extends "certificates/base.html" %}
+{% block title %}{{ event.name }}{% endblock %}
+{% block content %}
+
+<div class="toolbar">
+  <div>
+    <div class="section-head" style="margin-bottom:4px;">
+      <h2>{{ event.name }}</h2>
+    </div>
+    <span class="muted">{{ event.total_students }} students · {{ event.sent_count }} sent · <a href="{% url 'position_certificate' event.id %}" style="color:var(--gold-300);">edit layout</a></span>
+  </div>
+  <div class="toolbar-actions">
+    <form method="post" action="{% url 'generate_all' event.id %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost">Generate all PDFs</button>
+    </form>
+    <form method="post" action="{% url 'send_all' event.id %}" onsubmit="return confirm('Send certificates to all pending students?');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">Generate &amp; send all →</button>
+    </form>
+  </div>
+</div>
+
+<div class="table-card">
+  <table>
+    <thead>
+      <tr>
+        <th>Student</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Certificate</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for student in students %}
+      <tr>
+        <td class="cell-name">{{ student.name }}</td>
+        <td class="cell-email">{{ student.email }}</td>
+        <td>
+          {% if student.status == "sent" %}
+            <span class="seal-badge seal-sent"><span class="dot"></span> Sent</span>
+          {% elif student.status == "generated" %}
+            <span class="seal-badge seal-generated"><span class="dot"></span> Generated</span>
+          {% elif student.status == "failed" %}
+            <span class="seal-badge seal-failed"><span class="dot"></span> Failed</span>
+          {% else %}
+            <span class="seal-badge seal-pending"><span class="dot"></span> Pending</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if student.certificate_file %}
+            <a href="{{ student.certificate_file.url }}" target="_blank" style="color:var(--gold-300);">View PDF</a>
+          {% else %}
+            <span class="muted">—</span>
+          {% endif %}
+        </td>
+        <td style="text-align:right;">
+          <form method="post" action="{% url 'send_one' event.id student.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-ghost">{% if student.status == "sent" %}Resend{% else %}Send{% endif %}</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="muted" style="text-align:center;padding:40px;">No students imported.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

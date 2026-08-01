@@ -1,0 +1,16 @@
+{% extends "certificates/base.html" %}
+{% block title %}Verify Certificate{% endblock %}
+{% block content %}
+
+<div class="verify-wrap">
+  <div class="verify-card">
+    <div class="verify-seal">✓</div>
+    <h2>Certificate Verified</h2>
+    <p style="margin:0;color:#4a3d17;">This certificate was genuinely issued to</p>
+    <p style="font-family:var(--display);font-size:1.5rem;font-weight:600;margin:8px 0;">{{ student.name }}</p>
+    <p style="margin:0;color:#4a3d17;">for participating in <b>{{ event.name }}</b></p>
+    <div class="cert-id">Certificate ID: {{ student.cert_id }}</div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "certificates/base.html" %}
+{% block title %}New Event{% endblock %}
+{% block content %}
+
+<div class="section-head">
+  <h2>Create a new event</h2>
+</div>
+
+<form class="form-card" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+
+  <label for="id_name">Event name</label>
+  {{ form.name }}
+
+  <label for="id_organizer">Organizer <span class="muted">(optional)</span></label>
+  {{ form.organizer }}
+
+  <label>Certificate template</label>
+  <div class="file-drop">
+    {{ form.template_image }}
+    <div class="file-drop-label">Drop your certificate design here, or click to browse</div>
+    <div class="file-drop-sub">PNG or JPG — the blank certificate, without any names on it</div>
+  </div>
+
+  <label>Participant list (Excel)</label>
+  <div class="file-drop">
+    {{ form.excel_file }}
+    <div class="file-drop-label">Drop your Excel sheet here, or click to browse</div>
+    <div class="file-drop-sub">.xlsx — first row must have "Name" and "Email" column headers</div>
+  </div>
+  <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here.</div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Continue to layout →</button>
+    <a href="{% url 'home' %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+
+<script>
+document.querySelectorAll('.file-drop input[type=file]').forEach(function (input) {
+  input.addEventListener('change', function () {
+    const label = input.closest('.file-drop').querySelector('.file-drop-label');
+    if (input.files.length) label.textContent = input.files[0].name;
+  });
+});
+</script>
+
+{% endblock %}

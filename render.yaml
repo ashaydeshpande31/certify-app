@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: certify
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn certify_project.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false

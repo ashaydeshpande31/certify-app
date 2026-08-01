@@ -1,0 +1,43 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Certify{% endblock %} — Certificate Automation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'certificates/css/style.css' %}">
+</head>
+<body>
+<div class="seal-watermark" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a href="{% url 'home' %}" class="brand">
+    <span class="brand-seal">C</span>
+    <span class="brand-text">Certify<span class="brand-dot">.</span></span>
+  </a>
+  <nav class="topnav">
+    <a href="{% url 'home' %}">Events</a>
+    <a href="{% url 'create_event' %}" class="nav-cta">+ New Event</a>
+  </nav>
+</header>
+
+{% if messages %}
+<div class="flash-stack">
+  {% for message in messages %}
+    <div class="flash flash-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<main class="page">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <span>Built for hackathon organizers · Excel in, certificates out.</span>
+</footer>
+
+</body>
+</html>

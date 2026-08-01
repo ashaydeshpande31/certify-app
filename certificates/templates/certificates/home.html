@@ -1,0 +1,69 @@
+{% extends "certificates/base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div>
+    <div class="hero-eyebrow">Excel in → Certificates out</div>
+    <h1>Stop making certificates <em>by hand</em>, one student at a time.</h1>
+    <p>Upload your participant sheet and a certificate template once. Every student's name gets placed automatically, and their personal certificate lands straight in their inbox — ready to download and post on LinkedIn.</p>
+    <a href="{% url 'create_event' %}" class="btn btn-primary">Create your first event →</a>
+  </div>
+  <div class="mock-cert">
+    <div class="mock-cert-eyebrow">Certificate of Participation</div>
+    <h2>HackNova 2026</h2>
+    <span class="cert-name">Ananya Sharma</span>
+    <div class="cert-sub">has successfully participated in the 24-hour hackathon</div>
+    <div class="mock-cert-seal">✓</div>
+  </div>
+</section>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">01</div>
+    <h3>Upload sheet &amp; template</h3>
+    <p>Add your Excel sheet (Name + Email columns) from the Google Form, plus your certificate design as an image.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">02</div>
+    <h3>Place the name</h3>
+    <p>Click once on your template to mark where names go. Pick a font, size and color — see it live.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">03</div>
+    <h3>Generate &amp; send</h3>
+    <p>Every student gets their own PDF certificate, emailed directly to their Gmail — no manual work.</p>
+  </div>
+</div>
+
+<div class="section-head">
+  <h2>Your events</h2>
+  <span class="muted">{{ events|length }} event{{ events|length|pluralize }}</span>
+</div>
+
+{% if events %}
+<div class="event-grid">
+  {% for event in events %}
+  <a href="{% if event.is_configured %}{% url 'student_list' event.id %}{% else %}{% url 'position_certificate' event.id %}{% endif %}" class="event-card">
+    <h3>{{ event.name }}</h3>
+    <span class="muted">{{ event.organizer|default:"Independent event" }}</span>
+    <div class="event-stats">
+      <span><b>{{ event.total_students }}</b> students</span>
+      <span><b>{{ event.sent_count }}</b> sent</span>
+    </div>
+    {% if event.is_configured %}
+      <span class="seal-badge seal-generated"><span class="dot"></span> Configured</span>
+    {% else %}
+      <span class="seal-badge seal-pending"><span class="dot"></span> Needs layout</span>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No events yet. Create one to upload your first certificate template and student list.</p>
+  <a href="{% url 'create_event' %}" class="btn btn-primary" style="margin-top:14px;">+ New Event</a>
+</div>
+{% endif %}
+
+{% endblock %}
