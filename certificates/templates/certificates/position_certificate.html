@@ -90,11 +90,29 @@ stage.addEventListener('click', function (e) {
   placeMarker(Math.max(0, Math.min(100, xPercent)), Math.max(0, Math.min(100, yPercent)));
 });
 
+const templateImg = document.getElementById('template-img');
+
+function getPreviewScale() {
+  if (!templateImg.naturalWidth) return 1;
+  return stage.getBoundingClientRect().width / templateImg.naturalWidth;
+}
+
+function updateMarkerFontSize() {
+  const scale = getPreviewScale();
+  marker.style.fontSize = (fontSizeSlider.value * scale) + 'px';
+}
+
 fontSizeSlider.addEventListener('input', function () {
-  marker.style.fontSize = (this.value / 1.6) + 'px';
+  updateMarkerFontSize();
   fontSizeHidden.value = this.value;
 });
-marker.style.fontSize = (fontSizeSlider.value / 1.6) + 'px';
+
+if (templateImg.complete) {
+  updateMarkerFontSize();
+} else {
+  templateImg.addEventListener('load', updateMarkerFontSize);
+}
+window.addEventListener('resize', updateMarkerFontSize);
 
 fontChoice.addEventListener('change', function () {
   const map = { serif: "'Fraunces', serif", sans: "'Inter', sans-serif", script: "'Fraunces', serif" };
