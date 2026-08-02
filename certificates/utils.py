@@ -66,11 +66,16 @@ def parse_excel(excel_field):
 
 def get_font(event, size=None):
     size = size or event.font_size
-    paths = FONT_PATHS.get(event.font_choice, FONT_PATHS["serif"])
-    try:
-        return ImageFont.truetype(paths["bold"], size)
-    except OSError:
-        return ImageFont.load_default()
+    candidates = [
+        "C:/Windows/Fonts/georgiab.ttf",
+        "C:/Windows/Fonts/timesbd.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default(size=size)
 
 
 def hex_to_rgb(hex_color):
