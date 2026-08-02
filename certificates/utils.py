@@ -116,8 +116,7 @@ def generate_certificate_pdf(event, student):
 
 def send_certificate_email(event, student):
     """Email the generated certificate PDF to the student. Returns (ok, error_message)."""
-    if not student.certificate_file:
-        generate_certificate_pdf(event, student)
+    generate_certificate_pdf(event, student)
 
     verify_url = f"{settings.SITE_URL}/verify/{student.cert_id}/"
 
