@@ -2,7 +2,7 @@
 
 - Automated certificate generation
 - Upload student data using Excel
-- Send certificates directly to students' email
+- Send certificates directly to students' emails
 - Cloud-based certificate storage
 
 Upload a student list (Excel) and a certificate template once. Certify places
