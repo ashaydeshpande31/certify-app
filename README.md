@@ -1,9 +1,9 @@
 ## Project Features
 
-- Certificate generation
-- Email delivery
-- User-friendly interface
-- Django-based application# Certify — Automated Certificate Generator & Mailer
+- Automated certificate generation
+- Upload student data using Excel
+- Send certificates directly to students' email
+- Cloud-based certificate storage
 
 Upload a student list (Excel) and a certificate template once. Certify places
 each student's name on the certificate automatically, turns it into a PDF,
