@@ -2,10 +2,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from django.utils import timezone
 
 from .forms import EventCreateForm
 from .models import Event, Student
 from .utils import parse_excel, generate_certificate_pdf, send_certificate_email
+
+
+def privacy_policy(request):
+    return render(request, "certificates/privacy.html", {"last_updated": timezone.now().strftime("%B %Y")})
 
 
 def home(request):

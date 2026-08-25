@@ -1,0 +1,46 @@
+{% extends "certificates/base.html" %}
+{% block title %}Privacy Policy{% endblock %}
+{% block content %}
+
+<div class="form-card" style="max-width:780px;">
+  <h2 style="margin-top:0;">Privacy Policy</h2>
+  <p class="muted">Last updated: {{ last_updated }}</p>
+
+  <p>Certify ("the app", "we", "us") helps event organizers generate and email
+  personalized certificates to participants. This page explains what
+  information Certify accesses and how it's used.</p>
+
+  <h3>What we access</h3>
+  <p>When you sign in with Google, Certify requests:</p>
+  <ul>
+    <li><b>Your name and email address</b> — used to identify your account and label the events you create.</li>
+    <li><b>Permission to send email on your behalf (Gmail send access)</b> — used only to send certificate emails, from your own Gmail address, to the participants you upload for your own events. Certify never reads your inbox, never accesses your existing emails, and never sends anything other than the certificate emails you trigger yourself.</li>
+  </ul>
+
+  <h3>What we store</h3>
+  <p>We store the events, participant names/emails, and certificate templates
+  you upload, solely so the app can generate and send certificates on your
+  behalf. We store an authorization token that lets the app send email through
+  your Gmail account; this token is used only when you click "Send" and is
+  never shared with anyone else.</p>
+
+  <h3>What we don't do</h3>
+  <ul>
+    <li>We don't sell or share your data with third parties.</li>
+    <li>We don't read, forward, or store any email in your Gmail inbox other than the certificate emails the app sends on your explicit request.</li>
+    <li>We don't use your data for advertising.</li>
+  </ul>
+
+  <h3>Data deletion</h3>
+  <p>You can delete any event (and its participant data and generated
+  certificates) at any time from your dashboard. To revoke Certify's access
+  to your Google account entirely, visit
+  <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:var(--gold-300);">Google Account → Security → Third-party access</a>
+  and remove Certify.</p>
+
+  <h3>Contact</h3>
+  <p>Questions about this policy or your data can be sent to the app owner via
+  the contact details on our GitHub repository.</p>
+</div>
+
+{% endblock %}
