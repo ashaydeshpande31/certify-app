@@ -21,6 +21,16 @@
   </div>
 </div>
 
+
+<form method="post" action="{% url 'update_message' event.id %}" class="form-card" style="margin-bottom:24px;">
+  {% csrf_token %}
+  <label for="event-message">Personal message included with each certificate email</label>
+  <textarea id="event-message" name="message" rows="3" placeholder="e.g. Thanks so much for attending — it was great having you there!">{{ event.message }}</textarea>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-ghost btn-sm">Save message</button>
+  </div>
+</form>
+
 <div class="table-card">
   <table>
     <thead>

@@ -1,14 +1,27 @@
 import uuid
+from django.conf import settings
 from django.db import models
 
 
 class Event(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="events",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=200)
     organizer = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     template_image = models.ImageField(upload_to="templates/")
     excel_file = models.FileField(upload_to="excels/", blank=True, null=True)
+
+    message = models.TextField(
+        blank=True,
+        help_text='A personal note included in the certificate email, e.g. "Thanks for attending!"',
+    )
 
     name_x_percent = models.FloatField(default=50.0)
     name_y_percent = models.FloatField(default=50.0)

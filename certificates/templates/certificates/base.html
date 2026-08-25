@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,8 +18,15 @@
     <span class="brand-text">Certify<span class="brand-dot">.</span></span>
   </a>
   <nav class="topnav">
-    <a href="{% url 'home' %}">Events</a>
-    <a href="{% url 'create_event' %}" class="nav-cta">+ New Event</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'home' %}">Events</a>
+      <a href="{% url 'create_event' %}" class="nav-cta">+ New Event</a>
+      <span class="muted" style="margin-left:8px;">{{ user.email|default:user.username }}</span>
+      <a href="{% url 'account_logout' %}">Log out</a>
+    {% else %}
+      <a href="/accounts/google/login/?process=login" class="nav-cta">Sign in with Google</a>
+    {% endif %}
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark/light mode">🌙</button>
   </nav>
 </header>
 
@@ -38,6 +45,22 @@
 <footer class="footer">
   <span>Built for hackathon organizers · Excel in, certificates out.</span>
 </footer>
+<script>
+  (function () {
+    const root = document.documentElement;
+    const btn = document.getElementById('theme-toggle');
+    const saved = localStorage.getItem('certify-theme') || 'dark';
+    root.setAttribute('data-theme', saved);
+    btn.textContent = saved === 'dark' ? '🌙' : '☀️';
 
+    btn.addEventListener('click', function () {
+      const current = root.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('certify-theme', next);
+      btn.textContent = next === 'dark' ? '🌙' : '☀️';
+    });
+  })();
+</script>
 </body>
 </html>

@@ -7,7 +7,11 @@
     <div class="hero-eyebrow">Excel in → Certificates out</div>
     <h1>Stop making certificates <em>by hand</em>, one student at a time.</h1>
     <p>Upload your participant sheet and a certificate template once. Every student's name gets placed automatically, and their personal certificate lands straight in their inbox — ready to download and post on LinkedIn.</p>
-    <a href="{% url 'create_event' %}" class="btn btn-primary">Create your first event →</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'create_event' %}" class="btn btn-primary">Create your first event →</a>
+    {% else %}
+      <a href="/accounts/google/login/?process=login" class="btn btn-primary">Sign in with Google to start →</a>
+    {% endif %}
   </div>
   <div class="mock-cert">
     <div class="mock-cert-eyebrow">Certificate of Participation</div>
@@ -41,22 +45,33 @@
   <span class="muted">{{ events|length }} event{{ events|length|pluralize }}</span>
 </div>
 
-{% if events %}
+{% if not user.is_authenticated %}
+<div class="empty-state">
+  <p>Sign in with Google to create events and send certificates from your own Gmail account.</p>
+  <a href="/accounts/google/login/?process=login" class="btn btn-primary" style="margin-top:14px;">Sign in with Google</a>
+</div>
+{% elif events %}
 <div class="event-grid">
   {% for event in events %}
-  <a href="{% if event.is_configured %}{% url 'student_list' event.id %}{% else %}{% url 'position_certificate' event.id %}{% endif %}" class="event-card">
-    <h3>{{ event.name }}</h3>
-    <span class="muted">{{ event.organizer|default:"Independent event" }}</span>
-    <div class="event-stats">
-      <span><b>{{ event.total_students }}</b> students</span>
-      <span><b>{{ event.sent_count }}</b> sent</span>
-    </div>
-    {% if event.is_configured %}
-      <span class="seal-badge seal-generated"><span class="dot"></span> Configured</span>
-    {% else %}
-      <span class="seal-badge seal-pending"><span class="dot"></span> Needs layout</span>
-    {% endif %}
-  </a>
+  <div class="event-card" style="position:relative;">
+    <a href="{% if event.is_configured %}{% url 'student_list' event.id %}{% else %}{% url 'position_certificate' event.id %}{% endif %}" style="display:block;color:inherit;text-decoration:none;">
+      <h3>{{ event.name }}</h3>
+      <span class="muted">{{ event.organizer|default:"Independent event" }}</span>
+      <div class="event-stats">
+        <span><b>{{ event.total_students }}</b> students</span>
+        <span><b>{{ event.sent_count }}</b> sent</span>
+      </div>
+      {% if event.is_configured %}
+        <span class="seal-badge seal-generated"><span class="dot"></span> Configured</span>
+      {% else %}
+        <span class="seal-badge seal-pending"><span class="dot"></span> Needs layout</span>
+      {% endif %}
+    </a>
+    <form method="post" action="{% url 'delete_event' event.id %}" onsubmit="return confirm('Delete this event and all its certificates? This cannot be undone.');" style="margin-top:12px;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-danger">Delete event</button>
+    </form>
+  </div>
   {% endfor %}
 </div>
 {% else %}

@@ -5,10 +5,16 @@ from .models import Event
 class EventCreateForm(forms.ModelForm):
     class Meta:
         model = Event
-        fields = ["name", "organizer", "template_image", "excel_file"]
+        fields = ["name", "organizer", "template_image", "excel_file", "message"]
         widgets = {
             "name": forms.TextInput(attrs={"placeholder": "e.g. HackNova 2026 - Participation Certificate"}),
             "organizer": forms.TextInput(attrs={"placeholder": "e.g. College Tech Council (optional)"}),
+            "message": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": "e.g. Thanks so much for attending HackNova 2026 — it was great having you there!",
+                }
+            ),
         }
 
 

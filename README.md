@@ -19,6 +19,15 @@ Built with Django + Pillow (image/PDF generation) + openpyxl (Excel parsing).
 - Public certificate verification page (`/verify/<id>/`) — a unique link
   included in every email so anyone (e.g. a LinkedIn viewer or recruiter)
   can confirm the certificate is genuine.
+- **Google Sign-In** — every organizer signs in with their own Google
+  account; their events are private to them, and certificates are emailed
+  from their own Gmail via the Gmail API (see §2).
+- **Personal message per event** — write a short note (e.g. "Thanks for
+  attending!") when creating an event, or edit it anytime from the
+  student-list page; it's included in every certificate email for that
+  event.
+- **Delete event** — remove an event (and all its certificates) you no
+  longer need, right from the events grid.
 - Clean, distinctive "official document" themed UI — not a bootstrap default.
 
 ## 1. Setup
@@ -36,32 +45,82 @@ python manage.py runserver
 
 Open **http://127.0.0.1:8000/**.
 
-## 2. Sending real emails (Gmail)
+## 2. Google Sign-In (each organizer sends from their own Gmail)
 
-By default, emails are just printed to your terminal (safe for testing —
-nothing actually gets sent). To send real emails through Gmail:
+Certify now uses **Google Sign-In**. Anyone you share the app with signs in
+with their own Google account, and certificates are emailed straight from
+*their* Gmail — not a shared inbox. Events are private to whoever created
+them.
+
+### 2a. Create a Google OAuth client (one-time, for you as the app owner)
+
+1. Go to https://console.cloud.google.com/ and select (or create) the
+   `certify-app` project you already set up.
+2. **APIs & Services → OAuth consent screen** — set it to "External", add
+   your app name/logo, and add the scope
+   `https://www.googleapis.com/auth/gmail.send`. While the app is in
+   "Testing" mode, add every Google account that should be able to sign in
+   (yourself + teammates) under **Test users** — Google blocks anyone else
+   until you publish the app.
+3. **APIs & Services → Library** — enable the **Gmail API**.
+4. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+   → Application type **Web application**. Under **Authorized redirect
+   URIs**, add every URL you'll run this from, each ending in
+   `/accounts/google/login/callback/`, e.g.:
+   - `http://127.0.0.1:8000/accounts/google/login/callback/` (local)
+   - `https://your-ngrok-subdomain.ngrok-free.app/accounts/google/login/callback/` (ngrok — see §6)
+   - `https://your-app.onrender.com/accounts/google/login/callback/` (Render)
+5. Copy the **Client ID** and **Client secret** it gives you.
+
+### 2b. Tell Certify about the client
+
+Set two environment variables before running the server:
+
+```bash
+export GOOGLE_OAUTH_CLIENT_ID="xxxx.apps.googleusercontent.com"
+export GOOGLE_OAUTH_CLIENT_SECRET="xxxx"
+```
+
+On Windows (PowerShell):
+```powershell
+$env:GOOGLE_OAUTH_CLIENT_ID="xxxx.apps.googleusercontent.com"
+$env:GOOGLE_OAUTH_CLIENT_SECRET="xxxx"
+```
+
+Then run migrations (new fields were added) and start the server:
+
+```bash
+python manage.py migrate
+python manage.py runserver
+```
+
+Click **"Sign in with Google"** in the top bar. The first time, Google will
+show a consent screen asking to let Certify "send email on your behalf" —
+that's the `gmail.send` permission, needed so certificates go out from that
+user's own address. Approve it once; Certify securely stores the token so
+future sends don't ask again.
+
+**Fallback:** if `GOOGLE_OAUTH_CLIENT_ID`/`SECRET` aren't set, or a signed-in
+user hasn't granted Gmail access yet, Certify automatically falls back to
+sending via the shared `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` SMTP
+account (see below), so the app still works without Google Sign-In
+configured.
+
+### 2c. (Optional) shared fallback Gmail account via App Password
 
 1. Turn on 2-Step Verification on the Gmail account you'll send from:
    https://myaccount.google.com/security
 2. Create an **App Password**: https://myaccount.google.com/apppasswords
    (choose "Mail" as the app). Google gives you a 16-character password.
-3. Set these environment variables before starting the server:
+3. Set these environment variables:
 
    ```bash
    export EMAIL_HOST_USER="youraddress@gmail.com"
    export EMAIL_HOST_PASSWORD="the16charapppassword"
-   python manage.py runserver
    ```
 
-   On Windows (PowerShell):
-   ```powershell
-   $env:EMAIL_HOST_USER="youraddress@gmail.com"
-   $env:EMAIL_HOST_PASSWORD="the16charapppassword"
-   python manage.py runserver
-   ```
-
-That's it — certificates will now be actually emailed. Gmail's free account
-limits you to roughly 500 emails/day, which is plenty for a college event.
+Gmail's free account limits you to roughly 500 emails/day, which is plenty
+for a college event.
 
 ## 3. Excel sheet format
 
@@ -73,7 +132,7 @@ then upload that file here.
 
 | Name          | Email                     |
 |---------------|----------------------------|
-| Ananya Sharma | ananya@gmail.com           |
+| Ashay Deshpande | ashaydeshpande@gmail.com           |
 | Rohit Verma   | rohit@gmail.com            |
 
 ## 4. Certificate template
@@ -101,7 +160,45 @@ certify_project/
 └── requirements.txt
 ```
 
-## 6. Deploying so it works from anywhere (not just your WiFi)
+## 6. Quick sharing with ngrok (no deploy needed)
+
+If you just need to demo the app or let a few people use it *while your
+laptop stays on*, ngrok tunnels your local server to a public HTTPS URL in
+seconds — no hosting account needed.
+
+1. Install ngrok: https://ngrok.com/download, then `ngrok config add-authtoken <your-token>`
+   (free account, token is on your ngrok dashboard).
+2. In one terminal, run Certify as usual:
+   ```bash
+   python manage.py runserver
+   ```
+3. In a second terminal:
+   ```bash
+   ngrok http 8000
+   ```
+   ngrok prints a **Forwarding** URL like `https://a1b2c3d4.ngrok-free.app`.
+4. Add that exact URL to Django and Google so cookies/CSRF and OAuth work
+   over the tunnel:
+   ```bash
+   export ALLOWED_HOSTS="a1b2c3d4.ngrok-free.app,127.0.0.1"
+   export CSRF_TRUSTED_ORIGINS="https://a1b2c3d4.ngrok-free.app"
+   export SITE_URL="https://a1b2c3d4.ngrok-free.app"
+   ```
+   (On Windows PowerShell, use `$env:NAME="value"` for each.)
+5. Add `https://a1b2c3d4.ngrok-free.app/accounts/google/login/callback/` to
+   **Authorized redirect URIs** on your Google OAuth client (§2a, step 4),
+   and add your testers' Gmail addresses under **Test users** on the OAuth
+   consent screen if the app is still in "Testing" mode.
+6. Restart `runserver` after setting the env vars, then share the ngrok URL.
+
+**Note:** ngrok's free plan gives you a new random URL every time you
+restart it, so you'd need to re-add the new callback URL to Google each
+time. A [paid ngrok plan](https://ngrok.com/pricing) or a reserved free
+domain (`ngrok http --domain=your-static-domain.ngrok-free.app 8000`) keeps
+the URL fixed. For anything longer-lived than a demo, Render (§7 below) is
+usually less hassle since the URL never changes.
+
+## 7. Deploying so it works from anywhere (not just your WiFi)
 
 This project is ready to deploy to **Render** for free — no credit card
 needed. This gives you a real public URL (e.g. `https://certify-xyz.onrender.com`)
@@ -118,8 +215,11 @@ your own laptop is off.
 
 4. Before the first deploy, add these **Environment Variables** in Render's
    dashboard (Settings → Environment):
-   - `EMAIL_HOST_USER` → your Gmail address
-   - `EMAIL_HOST_PASSWORD` → your 16-character Gmail App Password
+   - `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` → from §2a
+     (and add `https://<your-render-url>/accounts/google/login/callback/`
+     to that OAuth client's Authorized redirect URIs)
+   - `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` → optional shared-account
+     fallback (§2c) for users who haven't signed in with Google
    (Render already generates `SECRET_KEY` and sets `DEBUG=False` for you
    via `render.yaml`.)
 

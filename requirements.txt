@@ -7,3 +7,7 @@ dj-database-url>=2.1
 psycopg2-binary>=2.9
 django-cloudinary-storage>=0.3
 cloudinary>=1.36
+django-allauth>=0.63
+google-auth>=2.29
+google-auth-oauthlib>=1.2
+google-api-python-client>=2.130

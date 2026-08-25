@@ -278,7 +278,7 @@ a { color: inherit; text-decoration: none; }
 }
 label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-mid); margin: 18px 0 6px; }
 label:first-child { margin-top: 0; }
-input[type=text], input[type=email], input[type=number], select {
+input[type=text], input[type=email], input[type=number], select, textarea {
   width: 100%;
   background: var(--ink-700);
   border: 1px solid var(--ink-border);
@@ -288,7 +288,8 @@ input[type=text], input[type=email], input[type=number], select {
   font-family: var(--body);
   font-size: 0.95rem;
 }
-input:focus, select:focus, .file-drop:focus-within {
+textarea { resize: vertical; }
+input:focus, select:focus, textarea:focus, .file-drop:focus-within {
   outline: none;
   border-color: var(--gold-500);
   box-shadow: 0 0 0 3px rgba(201,162,39,0.15);
@@ -446,4 +447,35 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   .hero { grid-template-columns: 1fr; }
   .steps { grid-template-columns: 1fr; }
   .position-layout { grid-template-columns: 1fr; }
+}
+
+[data-theme="light"] {
+  --ink-900: #f2ead4;
+  --ink-800: #ffffff;
+  --ink-700: #fbf6e8;
+  --ink-600: #f0e8d2;
+  --ink-border: #ddd2ae;
+  --paper: #1b2c4a;
+  --paper-dim: #24365a;
+  --text-hi: #1b2440;
+  --text-mid: #4a5064;
+  --text-dim: #7a7f8f;
+  --ok: #2f7a5c;
+  --ok-bg: rgba(47, 122, 92, 0.12);
+  --err: #b5473c;
+  --err-bg: rgba(181, 71, 60, 0.12);
+}
+.theme-toggle {
+  background: var(--ink-700);
+  border: 1px solid var(--ink-border);
+  color: var(--text-hi);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-left: 8px;
+}
+.theme-toggle:hover {
+  border-color: var(--gold-500);
 }

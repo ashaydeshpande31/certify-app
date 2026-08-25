@@ -30,6 +30,10 @@
   </div>
   <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here.</div>
 
+  <label for="id_message">Personal message <span class="muted">(optional)</span></label>
+  {{ form.message }}
+  <div class="help-text">This is added to the email body alongside the certificate — e.g. "Thanks for attending HackNova 2026!" You can change it later from the event's student list page.</div>
+
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Continue to layout →</button>
     <a href="{% url 'home' %}" class="btn btn-ghost">Cancel</a>
