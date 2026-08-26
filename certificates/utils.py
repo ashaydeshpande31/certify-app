@@ -1,10 +1,12 @@
 import base64
+import csv
 import os
+import re
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email import encoders
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import openpyxl
 from django.core.files.base import ContentFile
@@ -32,17 +34,123 @@ FONT_PATHS = {
 }
 
 
-def parse_excel(excel_field):
-    """Read an uploaded excel file and return a list of {'name', 'email'} dicts.
+def _parse_pdf_table(rows_2d):
+    """Given a list of table rows (each a list of cell strings/None), find
+    Name/Email columns and return student dicts. Shared logic with the
+    xlsx/csv path below."""
+    if not rows_2d:
+        return None
+    header = [str(c).strip().lower() if c else "" for c in rows_2d[0]]
+    name_idx = next((i for i, h in enumerate(header) if "name" in h), None)
+    email_idx = next((i for i, h in enumerate(header) if "email" in h or "gmail" in h or "mail" in h), None)
+    if name_idx is None or email_idx is None:
+        return None
 
-    Looks for columns headed (case-insensitively) 'name' and 'email'/'gmail'
-    in the first row, in any order/position.
+    students = []
+    for row in rows_2d[1:]:
+        if row is None or all((c is None or str(c).strip() == "") for c in row):
+            continue
+        if len(row) <= max(name_idx, email_idx):
+            continue
+        name, email = row[name_idx], row[email_idx]
+        if not name or not email:
+            continue
+        students.append({"name": str(name).strip(), "email": str(email).strip()})
+    return students
+
+
+def _parse_pdf_freetext(text):
+    """Fallback for PDFs with no real table structure: find one email per
+    line and treat the rest of that line as the name. Handles common
+    exported formats like 'Ashay Deshpande - ashay@gmail.com' or
+    'Ashay Deshpande, ashay@gmail.com' or tab/space separated pairs."""
+    email_re = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+    students = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        match = email_re.search(line)
+        if not match:
+            continue
+        email = match.group(0)
+        name = (line[: match.start()] + line[match.end() :]).strip(" -,|\t")
+        name = re.sub(r"\s{2,}", " ", name).strip()
+        if not name:
+            continue  # can't safely guess a name — skip rather than mislabel
+        students.append({"name": name, "email": email})
+    return students
+
+
+def parse_pdf(pdf_field):
+    """Read an uploaded PDF and return a list of {'name', 'email'} dicts.
+
+    Only works for PDFs with real, selectable text (e.g. a spreadsheet or
+    form-response list exported/printed to PDF) — NOT scanned images or
+    photos of a printed page, which have no extractable text at all.
     """
-    excel_field.seek(0)
-    wb = openpyxl.load_workbook(BytesIO(excel_field.read()), data_only=True)
-    ws = wb.active
+    import pdfplumber
 
-    rows = list(ws.iter_rows(values_only=True))
+    pdf_field.seek(0)
+    all_students = []
+    has_any_text = False
+
+    with pdfplumber.open(BytesIO(pdf_field.read())) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text() or ""
+            if page_text.strip():
+                has_any_text = True
+
+            for table in page.extract_tables() or []:
+                parsed = _parse_pdf_table(table)
+                if parsed:
+                    all_students.extend(parsed)
+
+            if not all_students:
+                all_students.extend(_parse_pdf_freetext(page_text))
+
+    if not has_any_text:
+        raise ValueError(
+            "This PDF doesn't contain any readable text — it looks like a scanned "
+            "image or a photo saved as a PDF, which we can't read automatically. "
+            "Please upload a .xlsx, .xls, or .csv file instead, or a PDF exported "
+            "directly from a spreadsheet (not a photo)."
+        )
+
+    if not all_students:
+        raise ValueError(
+            "Couldn't find any Name/Email pairs in this PDF. Please make sure it has "
+            "a 'Name' and 'Email' column (if it's a table), or one name and email per "
+            "line, or upload a .xlsx, .xls, or .csv file instead."
+        )
+
+    return all_students
+
+
+def parse_excel(excel_field):
+    """Read an uploaded participant list and return a list of {'name', 'email'} dicts.
+
+    Accepts .xlsx/.xls (openpyxl), .csv (Python's csv module), or .pdf
+    (pdfplumber — text-based PDFs only, see parse_pdf). Looks for columns
+    headed (case-insensitively) 'name' and 'email'/'gmail' in the first row,
+    in any order/position.
+    """
+    filename = (getattr(excel_field, "name", "") or "").lower()
+
+    if filename.endswith(".pdf"):
+        return parse_pdf(excel_field)
+
+    excel_field.seek(0)
+
+    if filename.endswith(".csv"):
+        text = excel_field.read().decode("utf-8-sig", errors="ignore")
+        reader = csv.reader(StringIO(text))
+        rows = list(reader)
+    else:
+        wb = openpyxl.load_workbook(BytesIO(excel_field.read()), data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+
     if not rows:
         return []
 
@@ -59,8 +167,10 @@ def parse_excel(excel_field):
 
     students = []
     for row in rows[1:]:
-        if row is None or all(c is None for c in row):
+        if row is None or all((c is None or str(c).strip() == "") for c in row):
             continue
+        if len(row) <= max(name_idx, email_idx):
+            continue  # short/ragged row — not enough columns for name+email
         name = row[name_idx]
         email = row[email_idx]
         if not name or not email:

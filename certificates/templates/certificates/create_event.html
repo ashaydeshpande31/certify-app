@@ -26,10 +26,10 @@
   <div class="file-drop">
     {{ form.excel_file }}
     <div class="file-drop-label">Drop your participant list here, or click to browse</div>
-    <div class="file-drop-sub">.xlsx, .xls, or .csv — first row must have "Name" and "Email" column headers</div>
+    <div class="file-drop-sub">.xlsx, .xls, .csv, or .pdf — first row must have "Name" and "Email" column headers</div>
   </div>
   <div id="excel-file-error" class="field-error" style="display:none;"></div>
-  <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here.</div>
+  <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here. A PDF works too, but only if it's exported directly from a spreadsheet or form — not a photo or scan of a printed page.</div>
 
   <label for="id_message">Personal message <span class="muted">(optional)</span></label>
   {{ form.message }}
@@ -50,7 +50,7 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
 });
 
 (function () {
-  const ALLOWED = ['.xlsx', '.xls', '.csv'];
+  const ALLOWED = ['.xlsx', '.xls', '.csv', '.pdf'];
   const excelInput = document.getElementById('id_excel_file');
   const errorBox = document.getElementById('excel-file-error');
   const submitBtn = document.getElementById('submit-btn');
@@ -65,7 +65,7 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
 
   function validate() {
     if (excelInput.files.length && !currentFileIsValid()) {
-      errorBox.textContent = 'Only .xlsx, .xls, or .csv files are supported for the participant list. "' + excelInput.files[0].name + '" isn\'t one of those — please choose a different file.';
+      errorBox.textContent = 'Only .xlsx, .xls, .csv, or .pdf files are supported for the participant list. "' + excelInput.files[0].name + '" isn\'t one of those — please choose a different file.';
       errorBox.style.display = 'block';
       excelInput.closest('.file-drop').classList.add('file-drop-invalid');
       submitBtn.disabled = true;

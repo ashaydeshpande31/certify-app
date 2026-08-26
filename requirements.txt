@@ -1,6 +1,7 @@
 Django>=5.0,<6.1
 Pillow>=10.0
 openpyxl>=3.1
+pdfplumber>=0.11
 gunicorn>=21.2
 whitenoise>=6.6
 dj-database-url>=2.1
@@ -8,7 +9,7 @@ psycopg2-binary>=2.9
 django-cloudinary-storage>=0.3
 cloudinary>=1.36
 django-allauth>=0.63
+PyJWT>=2.8
 google-auth>=2.29
 google-auth-oauthlib>=1.2
 google-api-python-client>=2.130
-PyJWT>=2.8
