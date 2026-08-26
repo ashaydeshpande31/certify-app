@@ -406,6 +406,7 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(255,255,255,0.02); }
 .cell-name { font-weight: 600; }
 .cell-email { color: var(--text-mid); font-family: var(--mono); font-size: 0.82rem; }
+.cell-sno { width: 1%; white-space: nowrap; text-align: center; font-size: 0.82rem; }
 
 .edit-row td { background: rgba(255,255,255,0.02); padding: 16px 18px; }
 .inline-edit-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
