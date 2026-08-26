@@ -311,8 +311,21 @@ input:focus, select:focus, textarea:focus, .file-drop:focus-within {
 }
 .file-drop-label { font-weight: 600; font-size: 0.9rem; }
 .file-drop-sub { font-size: 0.78rem; color: var(--text-dim); margin-top: 4px; }
+.file-drop-invalid { border-color: var(--err); background: var(--err-bg); }
+
+.field-error {
+  margin-top: 8px;
+  padding: 10px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--err-bg);
+  color: var(--err);
+  border: 1px solid rgba(209,104,92,0.35);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
 
 .form-actions { margin-top: 26px; display: flex; gap: 12px; }
+.btn:disabled, .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
 /* ---------------- position tool ---------------- */
 .position-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 28px; align-items: start; }
