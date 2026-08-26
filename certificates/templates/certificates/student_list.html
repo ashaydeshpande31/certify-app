@@ -44,7 +44,7 @@
     </thead>
     <tbody>
       {% for student in students %}
-      <tr>
+      <tr id="view-row-{{ student.id }}">
         <td class="cell-name">{{ student.name }}</td>
         <td class="cell-email">{{ student.email }}</td>
         <td>
@@ -65,10 +65,25 @@
             <span class="muted">—</span>
           {% endif %}
         </td>
-        <td style="text-align:right;">
-          <form method="post" action="{% url 'send_one' event.id student.id %}">
+        <td style="text-align:right; white-space:nowrap;">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="toggleEditRow({{ student.id }})">Edit</button>
+          <form method="post" action="{% url 'send_one' event.id student.id %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit" class="btn btn-sm btn-ghost">{% if student.status == "sent" %}Resend{% else %}Send{% endif %}</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="edit-row-{{ student.id }}" class="edit-row" style="display:none;">
+        <td colspan="5">
+          <form method="post" action="{% url 'update_student' event.id student.id %}" class="inline-edit-form">
+            {% csrf_token %}
+            <input type="text" name="name" value="{{ student.name }}" placeholder="Name" required>
+            <input type="email" name="email" value="{{ student.email }}" placeholder="Email" required>
+            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="toggleEditRow({{ student.id }})">Cancel</button>
+            {% if student.status != "pending" %}
+              <span class="muted" style="font-size:0.78rem;">Changing name or email will mark this student "Pending" again so the certificate is regenerated with the correct details.</span>
+            {% endif %}
           </form>
         </td>
       </tr>
@@ -78,5 +93,18 @@
     </tbody>
   </table>
 </div>
+
+<script>
+function toggleEditRow(studentId) {
+  const editRow = document.getElementById('edit-row-' + studentId);
+  if (!editRow) return;
+  const isHidden = editRow.style.display === 'none' || !editRow.style.display;
+  editRow.style.display = isHidden ? 'table-row' : 'none';
+  if (isHidden) {
+    const firstInput = editRow.querySelector('input[name="name"]');
+    if (firstInput) firstInput.focus();
+  }
+}
+</script>
 
 {% endblock %}

@@ -1,5 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -11,6 +13,10 @@ from .utils import parse_excel, generate_certificate_pdf, send_certificate_email
 
 def privacy_policy(request):
     return render(request, "certificates/privacy.html", {"last_updated": timezone.now().strftime("%B %Y")})
+
+
+def terms_of_service(request):
+    return render(request, "certificates/terms.html", {"last_updated": timezone.now().strftime("%B %Y")})
 
 
 def home(request):
@@ -84,6 +90,44 @@ def update_message(request, event_id):
     event.message = request.POST.get("message", "").strip()
     event.save(update_fields=["message"])
     messages.success(request, "Message updated. It will be included in future emails for this event.")
+    return redirect("student_list", event_id=event.id)
+
+
+@login_required
+@require_POST
+def update_student(request, event_id, student_id):
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    student = get_object_or_404(Student, id=student_id, event=event)
+
+    name = request.POST.get("name", "").strip()
+    email = request.POST.get("email", "").strip()
+
+    if not name:
+        messages.error(request, "Name can't be empty.")
+        return redirect("student_list", event_id=event.id)
+
+    try:
+        validate_email(email)
+    except DjangoValidationError:
+        messages.error(request, f'"{email}" doesn\'t look like a valid email address — nothing was changed.')
+        return redirect("student_list", event_id=event.id)
+
+    changed = student.name != name or student.email != email
+    student.name = name
+    student.email = email
+
+    if changed and student.status in ("sent", "generated", "failed"):
+        # Any existing certificate was rendered with the old name, and if this
+        # was already "sent", that email went to the old address — clear it
+        # out and mark pending so the corrected version gets regenerated and
+        # (re)sent deliberately, instead of silently looking done.
+        if student.certificate_file:
+            student.certificate_file.delete(save=False)
+        student.status = "pending"
+        student.error_message = ""
+
+    student.save()
+    messages.success(request, f"Updated {student.name}'s details.")
     return redirect("student_list", event_id=event.id)
 
 
