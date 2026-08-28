@@ -65,15 +65,39 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
   const errorBox = document.getElementById('excel-file-error');
   const submitBtn = document.getElementById('submit-btn');
   const form = document.querySelector('form.form-card');
-  if (!excelInput || !errorBox || !submitBtn || !form) return;
+  const uploadMode = document.getElementById('upload-mode');
+  const quickSendMode = document.getElementById('quick-send-mode');
+  const modeRadios = document.querySelectorAll('input[name="participant-mode"]');
+  
+  if (!excelInput || !errorBox || !submitBtn || !form || !modeRadios.length) return;
+
+  function updateModeDisplay() {
+    const isQuickSend = document.querySelector('input[name="participant-mode"]:checked').value === 'quick-send';
+    if (isQuickSend) {
+      uploadMode.style.display = 'none';
+      quickSendMode.style.display = 'block';
+      excelInput.removeAttribute('required');
+    } else {
+      uploadMode.style.display = 'block';
+      quickSendMode.style.display = 'none';
+      excelInput.setAttribute('required', 'required');
+    }
+  }
 
   function currentFileIsValid() {
-    if (!excelInput.files.length) return true; // nothing picked yet — let the normal "required" message handle it
+    if (!excelInput.files.length) return true;
     const name = excelInput.files[0].name.toLowerCase();
     return ALLOWED.some(function (ext) { return name.endsWith(ext); });
   }
 
   function validate() {
+    const isQuickSend = document.querySelector('input[name="participant-mode"]:checked').value === 'quick-send';
+    if (isQuickSend) {
+      errorBox.style.display = 'none';
+      excelInput.closest('.file-drop').classList.remove('file-drop-invalid');
+      submitBtn.disabled = false;
+      return true;
+    }
     if (excelInput.files.length && !currentFileIsValid()) {
       errorBox.textContent = 'Only .xlsx, .xls, .csv, or .pdf files are supported for the participant list. "' + excelInput.files[0].name + '" isn\'t one of those — please choose a different file.';
       errorBox.style.display = 'block';
@@ -87,6 +111,13 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
     return true;
   }
 
+  modeRadios.forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      updateModeDisplay();
+      validate();
+    });
+  });
+
   excelInput.addEventListener('change', validate);
 
   form.addEventListener('submit', function (e) {
@@ -95,6 +126,8 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
       errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   });
+
+  updateModeDisplay();
 })();
 </script>
 
