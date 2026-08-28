@@ -21,7 +21,17 @@
     <div class="file-drop-label">Drop your certificate design here, or click to browse</div>
     <div class="file-drop-sub">PNG or JPG — the blank certificate, without any names on it</div>
   </div>
-
+  <label>How do you want to add participants?</label>
+  <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+    <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+      <input type="radio" name="participant-mode" value="upload" checked style="margin-right: 8px;">
+      <span>Upload a file (Excel, CSV, or PDF)</span>
+    </label>
+    <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+      <input type="radio" name="participant-mode" value="quick-send" style="margin-right: 8px;">
+      <span>Quick send (type name & email)</span>
+    </label>
+  </div>
   <label>Participant list</label>
   <div class="file-drop">
     {{ form.excel_file }}
