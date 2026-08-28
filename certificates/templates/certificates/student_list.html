@@ -31,11 +31,29 @@
   </div>
 </form>
 
+{% if event.is_quick_send %}
+<form method="post" action="{% url 'add_quick_send_student' event.id %}" class="form-card" style="margin-bottom:24px;">
+  {% csrf_token %}
+  <label>Add a participant</label>
+  <div style="display: flex; gap: 12px; align-items: flex-end;">
+    <div style="flex: 1;">
+      <label for="quick-name" style="display: block; font-size: 0.9rem; margin-bottom: 4px;">Name</label>
+      <input type="text" id="quick-name" name="name" placeholder="Full name" required style="width: 100%;">
+    </div>
+    <div style="flex: 1;">
+      <label for="quick-email" style="display: block; font-size: 0.9rem; margin-bottom: 4px;">Email</label>
+      <input type="email" id="quick-email" name="email" placeholder="email@example.com" required style="width: 100%;">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Add participant</button>
+  </div>
+</form>
+{% endif %}
+
 <div class="table-card">
   <table>
     <thead>
       <tr>
-        <th>Sr.no</th>
+        <th>#</th>
         <th>Student</th>
         <th>Email</th>
         <th>Status</th>

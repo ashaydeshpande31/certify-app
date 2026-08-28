@@ -34,23 +34,32 @@ def create_event(request):
         if form.is_valid():
             event = form.save(commit=False)
             event.owner = request.user
+            
+            is_quick_send = request.POST.get("participant-mode") == "quick-send"
+            event.is_quick_send = is_quick_send
             event.save()
-            try:
-                rows = parse_excel(event.excel_file)
-            except ValueError as exc:
-                event.delete()
-                messages.error(request, str(exc))
-                return redirect("create_event")
+            
+            # Only parse and import students if NOT in quick-send mode
+            if not is_quick_send:
+                try:
+                    rows = parse_excel(event.excel_file)
+                except ValueError as exc:
+                    event.delete()
+                    messages.error(request, str(exc))
+                    return redirect("create_event")
 
-            if not rows:
-                event.delete()
-                messages.error(request, "No valid student rows found in that Excel sheet.")
-                return redirect("create_event")
+                if not rows:
+                    event.delete()
+                    messages.error(request, "No valid student rows found in that Excel sheet.")
+                    return redirect("create_event")
 
-            Student.objects.bulk_create(
-                [Student(event=event, name=r["name"], email=r["email"]) for r in rows]
-            )
-            messages.success(request, f"Imported {len(rows)} students. Now position the name on your certificate.")
+                Student.objects.bulk_create(
+                    [Student(event=event, name=r["name"], email=r["email"]) for r in rows]
+                )
+                messages.success(request, f"Imported {len(rows)} students. Now position the name on your certificate.")
+            else:
+                messages.success(request, "Event created! Now position the name on your certificate.")
+            
             return redirect("position_certificate", event_id=event.id)
     else:
         form = EventCreateForm()
@@ -90,6 +99,35 @@ def update_message(request, event_id):
     event.message = request.POST.get("message", "").strip()
     event.save(update_fields=["message"])
     messages.success(request, "Message updated. It will be included in future emails for this event.")
+    return redirect("student_list", event_id=event.id)
+
+
+@login_required
+@require_POST
+def add_quick_send_student(request, event_id):
+    """Add a single student in quick-send mode"""
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    
+    if not event.is_quick_send:
+        messages.error(request, "This event is not in quick-send mode.")
+        return redirect("student_list", event_id=event.id)
+
+    name = request.POST.get("name", "").strip()
+    email = request.POST.get("email", "").strip()
+
+    if not name:
+        messages.error(request, "Name can't be empty.")
+        return redirect("student_list", event_id=event.id)
+
+    try:
+        validate_email(email)
+    except DjangoValidationError:
+        messages.error(request, f'"{email}" doesn\'t look like a valid email address.')
+        return redirect("student_list", event_id=event.id)
+
+    # Create the student
+    Student.objects.create(event=event, name=name, email=email)
+    messages.success(request, f"Added {name}. Click 'Send' to generate and send their certificate.")
     return redirect("student_list", event_id=event.id)
 
 

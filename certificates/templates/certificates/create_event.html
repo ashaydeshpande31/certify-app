@@ -22,14 +22,32 @@
     <div class="file-drop-sub">PNG or JPG — the blank certificate, without any names on it</div>
   </div>
 
-  <label>Participant list</label>
-  <div class="file-drop">
-    {{ form.excel_file }}
-    <div class="file-drop-label">Drop your participant list here, or click to browse</div>
-    <div class="file-drop-sub">.xlsx, .xls, .csv, or .pdf — first row must have "Name" and "Email" column headers</div>
+  <label>How do you want to add participants?</label>
+  <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+    <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+      <input type="radio" name="participant-mode" value="upload" checked style="margin-right: 8px;">
+      <span>Upload a file (Excel, CSV, or PDF)</span>
+    </label>
+    <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+      <input type="radio" name="participant-mode" value="quick-send" style="margin-right: 8px;">
+      <span>Quick send (type name & email)</span>
+    </label>
   </div>
-  <div id="excel-file-error" class="field-error" style="display:none;"></div>
-  <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here. A PDF works too, but only if it's exported directly from a spreadsheet or form — not a photo or scan of a printed page.</div>
+
+  <div id="upload-mode">
+    <label>Participant list</label>
+    <div class="file-drop">
+      {{ form.excel_file }}
+      <div class="file-drop-label">Drop your participant list here, or click to browse</div>
+      <div class="file-drop-sub">.xlsx, .xls, .csv, or .pdf — first row must have "Name" and "Email" column headers</div>
+    </div>
+    <div id="excel-file-error" class="field-error" style="display:none;"></div>
+    <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here. A PDF works too, but only if it's exported directly from a spreadsheet or form — not a photo or scan of a printed page.</div>
+  </div>
+
+  <div id="quick-send-mode" style="display: none;">
+    <div class="help-text" style="margin-bottom: 15px;">You'll add the participant name and email after positioning the layout.</div>
+  </div>
 
   <label for="id_message">Personal message <span class="muted">(optional)</span></label>
   {{ form.message }}
@@ -55,15 +73,39 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
   const errorBox = document.getElementById('excel-file-error');
   const submitBtn = document.getElementById('submit-btn');
   const form = document.querySelector('form.form-card');
-  if (!excelInput || !errorBox || !submitBtn || !form) return;
+  const uploadMode = document.getElementById('upload-mode');
+  const quickSendMode = document.getElementById('quick-send-mode');
+  const modeRadios = document.querySelectorAll('input[name="participant-mode"]');
+  
+  if (!excelInput || !errorBox || !submitBtn || !form || !modeRadios.length) return;
+
+  function updateModeDisplay() {
+    const isQuickSend = document.querySelector('input[name="participant-mode"]:checked').value === 'quick-send';
+    if (isQuickSend) {
+      uploadMode.style.display = 'none';
+      quickSendMode.style.display = 'block';
+      excelInput.removeAttribute('required');
+    } else {
+      uploadMode.style.display = 'block';
+      quickSendMode.style.display = 'none';
+      excelInput.setAttribute('required', 'required');
+    }
+  }
 
   function currentFileIsValid() {
-    if (!excelInput.files.length) return true; // nothing picked yet — let the normal "required" message handle it
+    if (!excelInput.files.length) return true;
     const name = excelInput.files[0].name.toLowerCase();
     return ALLOWED.some(function (ext) { return name.endsWith(ext); });
   }
 
   function validate() {
+    const isQuickSend = document.querySelector('input[name="participant-mode"]:checked').value === 'quick-send';
+    if (isQuickSend) {
+      errorBox.style.display = 'none';
+      excelInput.closest('.file-drop').classList.remove('file-drop-invalid');
+      submitBtn.disabled = false;
+      return true;
+    }
     if (excelInput.files.length && !currentFileIsValid()) {
       errorBox.textContent = 'Only .xlsx, .xls, .csv, or .pdf files are supported for the participant list. "' + excelInput.files[0].name + '" isn\'t one of those — please choose a different file.';
       errorBox.style.display = 'block';
@@ -77,6 +119,13 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
     return true;
   }
 
+  modeRadios.forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      updateModeDisplay();
+      validate();
+    });
+  });
+
   excelInput.addEventListener('change', validate);
 
   form.addEventListener('submit', function (e) {
@@ -85,6 +134,8 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
       errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   });
+
+  updateModeDisplay();
 })();
 </script>
 

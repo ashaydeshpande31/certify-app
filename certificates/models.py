@@ -37,6 +37,7 @@ class Event(models.Model):
     )
 
     is_configured = models.BooleanField(default=False)
+    is_quick_send = models.BooleanField(default=False, help_text="True if this event uses quick-send mode (add one person at a time)")
 
     def __str__(self):
         return self.name
