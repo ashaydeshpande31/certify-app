@@ -19,13 +19,23 @@ class EventCreateForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        # Whether this submission is in "quick send" mode (typed name/email,
+        # no participant file). Passed in from the view based on the
+        # participant-mode radio button.
+        self.is_quick_send = kwargs.pop("is_quick_send", False)
         super().__init__(*args, **kwargs)
         # The model allows this field to be blank (so we can safely roll back
-        # an Event if parsing fails), but a new event always needs a list.
-        self.fields["excel_file"].required = True
+        # an Event if parsing fails), but a new event needs a list UNLESS
+        # it's quick-send mode.
+        self.fields["excel_file"].required = not self.is_quick_send
 
     def clean_excel_file(self):
         excel_file = self.cleaned_data.get("excel_file")
+
+        if self.is_quick_send:
+            # No file needed in quick-send mode — skip validation entirely.
+            return excel_file
+
         if not excel_file:
             raise forms.ValidationError("Please upload a participant list (.xlsx, .xls, .csv, or .pdf).")
         name = excel_file.name.lower()

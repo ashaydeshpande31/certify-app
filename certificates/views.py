@@ -30,12 +30,11 @@ def home(request):
 @login_required
 def create_event(request):
     if request.method == "POST":
-        form = EventCreateForm(request.POST, request.FILES)
+        is_quick_send = request.POST.get("participant-mode") == "quick-send"
+        form = EventCreateForm(request.POST, request.FILES, is_quick_send=is_quick_send)
         if form.is_valid():
             event = form.save(commit=False)
             event.owner = request.user
-            
-            is_quick_send = request.POST.get("participant-mode") == "quick-send"
             event.is_quick_send = is_quick_send
             event.save()
             

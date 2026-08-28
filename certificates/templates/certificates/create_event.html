@@ -9,6 +9,10 @@
 <form class="form-card" method="post" enctype="multipart/form-data">
   {% csrf_token %}
 
+  {% if form.non_field_errors %}
+    <div class="field-error">{{ form.non_field_errors }}</div>
+  {% endif %}
+
   <label for="id_name">Event name</label>
   {{ form.name }}
 
@@ -41,6 +45,9 @@
       <div class="file-drop-label">Drop your participant list here, or click to browse</div>
       <div class="file-drop-sub">.xlsx, .xls, .csv, or .pdf — first row must have "Name" and "Email" column headers</div>
     </div>
+    {% if form.excel_file.errors %}
+      <div class="field-error">{{ form.excel_file.errors }}</div>
+    {% endif %}
     <div id="excel-file-error" class="field-error" style="display:none;"></div>
     <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here. A PDF works too, but only if it's exported directly from a spreadsheet or form — not a photo or scan of a printed page.</div>
   </div>
