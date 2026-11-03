@@ -1,4 +1,4 @@
-# Certify — Automated Certificate Generator & Mailer
+# Certify — Automated Certificate Generator & Mailer.
 
 Upload a student list (Excel) and a certificate template once. Certify places
 each student's name on the certificate automatically, turns it into a PDF,
