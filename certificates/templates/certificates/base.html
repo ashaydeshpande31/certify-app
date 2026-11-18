@@ -382,6 +382,26 @@
 {% endif %}
 <script>
   (function () {
+    // header logo: sways by itself, and tilts towards the mouse while it moves
+    const logos = document.querySelectorAll('.brand-logo');
+    if (!logos.length || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    let idleTimer = null;
+    function sway(on) { logos.forEach(function (l) { l.classList.toggle('sway', on); if (on) l.style.transform = ''; }); }
+    sway(true);
+    document.addEventListener('pointermove', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      const w = window.innerWidth, h = window.innerHeight;
+      const dx = Math.max(-1, Math.min(1, (e.clientX / w - 0.15) * 2));
+      const dy = Math.max(-1, Math.min(1, (e.clientY / h - 0.1) * 2));
+      sway(false);
+      logos.forEach(function (l) { l.style.transform = 'rotateY(' + (dx * 24) + 'deg) rotateX(' + (-dy * 14) + 'deg)'; });
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(function () { sway(true); }, 2500);
+    }, { passive: true });
+  })();
+</script>
+<script>
+  (function () {
     const root = document.documentElement;
     const btn = document.getElementById('theme-toggle');
     let saved = 'dark';

@@ -862,3 +862,15 @@ legend { padding:0; }
 .field-legend { display:block; margin:18px 0 8px; font-weight:600; color:var(--text-hi); font-size:.9rem; }
 .swatch { padding:0; background-clip:padding-box; }
 .swatch:focus-visible { outline:2px solid var(--accent-soft); outline-offset:3px; }
+
+/* header logo: a gentle 3D sway, and it follows the mouse */
+.brand { perspective: 520px; }
+.brand-logo { transform-origin: 28% 50%; transform-style: preserve-3d; will-change: transform; filter: drop-shadow(0 5px 6px rgba(0,0,0,.4)); transition: transform .18s ease-out; }
+[data-theme="light"] .brand-logo { filter: drop-shadow(0 5px 6px rgba(20,30,60,.28)); }
+@keyframes logo-sway {
+  0%, 100% { transform: rotateY(-16deg) rotateX(5deg) translateY(0); }
+  50% { transform: rotateY(16deg) rotateX(-5deg) translateY(-2px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .brand-logo.sway { animation: logo-sway 4.5s ease-in-out infinite; }
+}
