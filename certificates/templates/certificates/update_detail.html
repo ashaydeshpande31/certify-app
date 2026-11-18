@@ -19,12 +19,82 @@
   </div>
 </div>
 
-<div id="progress-card" class="form-card" style="display:none; margin-bottom:24px; max-width:none;">
-  <div id="progress-text" style="font-weight:600; margin-bottom:10px;">Starting…</div>
-  <div style="height:10px; background:var(--ink-700); border-radius:999px; overflow:hidden;">
-    <div id="progress-bar" style="height:100%; width:0%; background:var(--gold-500); transition:width .3s;"></div>
+<style>
+  .send-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(6, 10, 20, 0.74); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .send-overlay[hidden], .send-overlay [hidden] { display: none !important; }
+  .send-card { width: 100%; max-width: 440px; background: var(--ink-800); border: 1px solid var(--ink-border); border-radius: 20px; padding: 24px 26px 22px; text-align: center; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.6); }
+  .send-card h3 { margin: 10px 0 2px; font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .send-sub { margin: 0; color: var(--text-mid); font-size: 0.95rem; min-height: 1.4em; }
+  .send-bar { height: 8px; background: var(--ink-700); border-radius: 999px; overflow: hidden; margin: 16px 0 10px; }
+  .send-bar span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.45s ease; }
+  .send-note { margin: 0; font-size: 0.82rem; color: var(--text-dim); }
+  .send-actions { margin-top: 18px; display: flex; justify-content: center; }
+  .send-overlay.is-done h3::before { content: "\2713"; width: 28px; height: 28px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+  .send-overlay.is-done .send-bar span { background: var(--ok); }
+
+  /* ---- the scene: a letter is packed into an envelope, sealed, and flown away ----
+     Base styles = the finished "packed" picture, so with reduced motion
+     (or when paused) you simply see a sealed envelope and a plane. */
+  .send-stage { position: relative; height: 190px; overflow: hidden; perspective: 800px; }
+  .env { position: absolute; left: 50%; top: 72px; width: 150px; height: 98px; margin-left: -75px; }
+  .env-back { position: absolute; inset: 0; border-radius: 7px; background: #e4dcc6; box-shadow: 0 16px 30px -12px rgba(0, 0, 0, 0.6); }
+  .letter { position: absolute; left: 16px; top: 6px; width: 118px; height: 86px; border-radius: 3px; background: #fff; z-index: 2; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+  .letter i { position: absolute; left: 12px; height: 4px; border-radius: 2px; background: rgba(26, 34, 56, 0.28); }
+  .letter .l1 { top: 52px; width: 70px; } .letter .l2 { top: 62px; width: 88px; } .letter .l3 { top: 72px; width: 54px; }
+  .letter .photo { position: absolute; left: 10px; top: 10px; width: 98px; height: 34px; border-radius: 3px; background: linear-gradient(#9db8ff, #dbe6ff 58%, #86c19a 59%); overflow: hidden; }
+  .letter .photo::after { content: ""; position: absolute; right: 12px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: #f3c64a; }
+  .send-stage:not(.has-photo) .photo { display: none; }
+  .send-stage:not(.has-photo) .letter .l1 { top: 16px; } .send-stage:not(.has-photo) .letter .l2 { top: 27px; } .send-stage:not(.has-photo) .letter .l3 { top: 38px; }
+  .env-front { position: absolute; inset: 0; z-index: 3; border-radius: 7px; background: linear-gradient(#faf7ef 40%, #efe9d8); clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%); }
+  .env-front::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 8px; background: repeating-linear-gradient(-45deg, var(--stamp) 0 9px, #fff 9px 14px, var(--mail-blue) 14px 23px, #fff 23px 28px); }
+  .env-flap { position: absolute; left: 0; top: 0; width: 100%; height: 54%; z-index: 4; background: #efe8d4; clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: 50% 0; }
+  .env-seal { position: absolute; left: 50%; top: 54%; width: 32px; height: 32px; margin: -16px 0 0 -16px; border-radius: 50%; z-index: 6; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #2a1e05; background: radial-gradient(circle at 35% 30%, #f0d48a, #c8a24a 70%, #8a6b16); box-shadow: 0 0 0 2px rgba(200, 162, 74, 0.3); }
+  .plane { position: absolute; left: 0; top: 34px; width: 70px; height: 44px; z-index: 7; transform: translate(165px, 0) rotate(-10deg); }
+  .plane svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .plane::before { content: ""; position: absolute; right: 60px; top: 25px; width: 90px; border-top: 3px dotted var(--stamp); opacity: 0.8; -webkit-mask-image: linear-gradient(to right, transparent, #000); mask-image: linear-gradient(to right, transparent, #000); }
+
+  @keyframes env-cycle { 0% { opacity: 0; transform: translateX(0) scale(0.9); } 6%, 62% { opacity: 1; transform: translateX(0) scale(1); } 92% { opacity: 1; transform: translateX(300px) scale(1); } 100% { opacity: 0; transform: translateX(340px) scale(0.95); } }
+  @keyframes letter-cycle { 0%, 6% { transform: translateY(-104px); } 34%, 100% { transform: translateY(0); } }
+  @keyframes flap-cycle { 0%, 36% { transform: rotateX(180deg); z-index: 1; } 37% { transform: rotateX(180deg); z-index: 4; } 50%, 100% { transform: rotateX(0); z-index: 4; } }
+  @keyframes seal-cycle { 0%, 51% { opacity: 0; transform: scale(2) rotate(-20deg); } 57% { opacity: 1; transform: scale(0.92) rotate(2deg); } 62%, 100% { opacity: 1; transform: none; } }
+  @keyframes plane-cycle { 0%, 46% { opacity: 0; transform: translate(-90px, 44px) rotate(-14deg); } 48% { opacity: 1; transform: translate(-90px, 44px) rotate(-14deg); } 64% { opacity: 1; transform: translate(165px, 0) rotate(-10deg); } 96% { opacity: 1; transform: translate(470px, -70px) rotate(-16deg); } 100% { opacity: 0; transform: translate(480px, -74px) rotate(-16deg); } }
+  @keyframes plane-away { 0% { transform: translate(165px, 0) rotate(-10deg); opacity: 1; } 100% { transform: translate(470px, -70px) rotate(-16deg); opacity: 0; } }
+
+  .is-sending .env { animation: env-cycle 3.8s infinite; }
+  .is-sending .letter { animation: letter-cycle 3.8s infinite; }
+  .is-sending .env-flap { animation: flap-cycle 3.8s infinite; }
+  .is-sending .env-seal { animation: seal-cycle 3.8s infinite; }
+  .is-sending .plane { animation: plane-cycle 3.8s infinite; }
+  .is-done .plane { animation: plane-away 1.4s 0.5s ease-in forwards; }
+  @media (prefers-reduced-motion: reduce) { .send-overlay * { animation: none !important; } }
+</style>
+
+<div class="send-overlay" id="send-overlay" role="dialog" aria-modal="true" aria-live="polite" hidden>
+  <div class="send-card">
+    <div class="send-stage{% if attachments %} has-photo{% endif %}" aria-hidden="true">
+      <div class="plane">
+        <svg viewBox="0 0 70 44">
+          <g stroke="#101A2F" stroke-width="2.6" stroke-linejoin="round">
+            <path d="M2 26 L66 2 L30 28 Z" fill="#FFFFFF"/>
+            <path d="M30 28 L66 2 L38 42 Z" fill="#C6D2F7"/>
+            <path d="M30 28 L38 42 L24 35 Z" fill="#8EA2E6"/>
+          </g>
+        </svg>
+      </div>
+      <div class="env">
+        <div class="env-back"></div>
+        <div class="letter"><b class="photo"></b><i class="l1"></i><i class="l2"></i><i class="l3"></i></div>
+        <div class="env-front"></div>
+        <div class="env-flap"></div>
+        <div class="env-seal">&#10003;</div>
+      </div>
+    </div>
+    <h3 id="send-title">Sending your update</h3>
+    <p class="send-sub" id="send-sub"></p>
+    <div class="send-bar"><span id="send-bar"></span></div>
+    <p class="send-note" id="send-note">Keep this page open until it finishes.</p>
+    <div class="send-actions"><button type="button" class="btn btn-primary" id="send-close" hidden>Close</button></div>
   </div>
-  <div class="help-text" id="progress-note">Keep this page open until it finishes. If you close it, come back and press send again — people who already got the mail are skipped.</div>
 </div>
 
 {% if total > 450 %}
@@ -115,13 +185,47 @@
   const resetUrl = "{% url 'update_reset_failed' campaign.id %}";
   const csrf = "{{ csrf_token }}";
   const total = {{ total }};
+  const alreadySent = {{ sent_count }};
 
   const sendBtn = document.getElementById('send-btn');
   const retryBtn = document.getElementById('retry-btn');
-  const card = document.getElementById('progress-card');
-  const text = document.getElementById('progress-text');
-  const bar = document.getElementById('progress-bar');
-  const note = document.getElementById('progress-note');
+  const ov = document.getElementById('send-overlay');
+  const titleEl = document.getElementById('send-title');
+  const subEl = document.getElementById('send-sub');
+  const barEl = document.getElementById('send-bar');
+  const noteEl = document.getElementById('send-note');
+  const closeBtn = document.getElementById('send-close');
+
+  function setState(state) {
+    ov.classList.remove('is-sending', 'is-done', 'is-paused');
+    ov.classList.add(state);
+  }
+  function show(title, sub, note) {
+    if (title !== undefined) titleEl.textContent = title;
+    if (sub !== undefined) subEl.textContent = sub;
+    if (note !== undefined) noteEl.textContent = note;
+  }
+  function setBar(done) { barEl.style.width = (total ? Math.min(100, Math.round((done / total) * 100)) : 100) + '%'; }
+  function openOverlay() {
+    ov.hidden = false;
+    document.body.style.overflow = 'hidden';
+    closeBtn.hidden = true;
+    setState('is-sending');
+    setBar(alreadySent);
+    show('Sending your update', 'Sent ' + alreadySent + ' of ' + total, 'Keep this page open until it finishes.');
+  }
+  function endWith(state, title, sub, note, buttonLabel, onButton) {
+    setState(state);
+    show(title, sub, note);
+    closeBtn.textContent = buttonLabel;
+    closeBtn.hidden = false;
+    closeBtn.onclick = onButton;
+  }
+  function closeOverlay() {
+    ov.hidden = true;
+    document.body.style.overflow = '';
+    lock(false);
+  }
 
   function post(url) {
     return fetch(url, { method: 'POST', headers: { 'X-CSRFToken': csrf }, credentials: 'same-origin' })
@@ -140,7 +244,7 @@
         return await post(url);
       } catch (err) {
         lastErr = err;
-        text.textContent = 'Connection hiccup (' + err.message + ') — retrying (' + attempt + '/6)…';
+        show(undefined, undefined, 'Connection hiccup (' + err.message + ') — retrying (' + attempt + '/6)…');
         await new Promise(function (res) { setTimeout(res, 4000); });
       }
     }
@@ -154,37 +258,37 @@
 
   async function run() {
     lock(true);
-    card.style.display = 'block';
+    openOverlay();
     let failedThisRun = 0;
     try {
       while (true) {
         const d = await postWithRetry(sendUrl);
         failedThisRun += d.failed;
-        const done = d.sent_total + d.failed_total;
-        bar.style.width = (total ? Math.round((done / total) * 100) : 100) + '%';
-        text.textContent = 'Sent ' + d.sent_total + ' of ' + total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : '') + '…';
+        setBar(d.sent_total + d.failed_total);
+        show('Sending your update',
+             'Sent ' + d.sent_total + ' of ' + total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : ''),
+             'Keep this page open until it finishes.');
         if (d.stop) {
-          text.textContent = 'Paused at ' + d.sent_total + ' of ' + total + ' sent.';
-          note.textContent = d.error;
-          lock(false);
+          endWith('is-paused', 'Sending paused', 'Sent ' + d.sent_total + ' of ' + total, d.error, 'Close', closeOverlay);
           return;
         }
         if (!d.remaining) break;
         if (d.sent === 0 && d.failed === 0) {
           // Nothing could be claimed (e.g. another tab is sending). Don't spin.
-          text.textContent = 'Waiting on another send to finish…';
-          note.textContent = 'Reloading in a moment to show the latest status.';
+          endWith('is-paused', 'Another send is running', 'Sent ' + d.sent_total + ' of ' + total,
+                  'Reloading in a moment to show the latest status.', 'Reload now', function () { window.location.reload(); });
           setTimeout(function () { window.location.reload(); }, 4000);
           return;
         }
       }
-      text.textContent = 'Finished.';
-      note.textContent = failedThisRun ? 'Some mails failed — see the Failed rows below, then use "Retry failed".' : 'Everyone has been sent the update.';
-      setTimeout(function () { window.location.reload(); }, 1500);
+      const failedNote = failedThisRun
+        ? failedThisRun + ' mail(s) failed — see the red rows, then use "Retry failed".'
+        : 'Everyone on your list has it.';
+      endWith('is-done', 'Update sent', 'Your update went out from your own Gmail.', failedNote, 'View results', function () { window.location.reload(); });
     } catch (err) {
-      text.textContent = 'Stopped: ' + err.message;
-      note.textContent = 'Check your connection and press send again — people already sent are skipped. If it keeps failing, reload the page; you may need to sign in with Google again.';
-      lock(false);
+      endWith('is-paused', 'Sending stopped', err.message,
+              'Check your connection and press send again — people already sent are skipped. If it keeps failing, reload the page; you may need to sign in with Google again.',
+              'Close', closeOverlay);
     }
   }
 
