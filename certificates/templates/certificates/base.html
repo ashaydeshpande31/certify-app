@@ -28,6 +28,19 @@
       <a href="{% url 'home' %}">Home</a>
       <a href="{% url 'update_create' %}">Send update</a>
       <button type="button" class="nav-link-btn" id="drawer-open">Check delivery</button>
+      <div class="quota-wrap">
+        <button type="button" class="quota-pill" id="quota-pill" aria-expanded="false" aria-controls="quota-pop" title="Gmail sending limit">
+          <span class="quota-dot" id="quota-dot"></span><span id="quota-pill-text">… / …</span>
+        </button>
+        <div class="quota-pop" id="quota-pop" role="dialog" aria-label="Gmail sending limit" hidden>
+          <div class="qp-title">Sending limit, last 24 hours</div>
+          <div class="qp-big"><b id="qp-left">–</b> emails left</div>
+          <div class="qp-bar"><span id="qp-fill"></span></div>
+          <div class="qp-line" id="qp-used"></div>
+          <div class="qp-line" id="qp-free"></div>
+          <p class="qp-note">Counts update and certificate emails together. Gmail allows about 500 a day on a personal account and 2,000 on Google Workspace.</p>
+        </div>
+      </div>
       <a href="{% url 'create_event' %}" class="nav-cta">New event</a>
       <span class="nav-user">{{ user.email|default:user.username }}</span>
       <a href="{% url 'account_logout' %}">Log out</a>
@@ -156,6 +169,58 @@
     if (q.length < 2) { seq++; results.replaceChildren(); return; }
     timer = setTimeout(function () { search(q); }, 250);
   });
+})();
+</script>
+{% endif %}
+{% if user.is_authenticated %}
+<script>
+(function () {
+  const pill = document.getElementById('quota-pill');
+  if (!pill) return;
+  const pop = document.getElementById('quota-pop');
+  const url = "{% url 'quota_status' %}";
+  const $ = function (id) { return document.getElementById(id); };
+  function when(iso) {
+    const d = new Date(iso), ms = d - Date.now();
+    if (ms <= 0) return 'now';
+    const m = Math.round(ms / 60000), h = Math.floor(m / 60);
+    const t = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return (h ? h + ' h ' + (m % 60) + ' min' : m + ' min') + ' (at ' + t + ')';
+  }
+  function paint(q) {
+    const pct = q.limit ? Math.min(100, Math.round(q.used * 100 / q.limit)) : 0;
+    const state = q.left === 0 ? 'full' : (pct >= 80 ? 'low' : 'ok');
+    pill.dataset.state = state;
+    $('quota-pill-text').textContent = q.used + ' / ' + q.limit + ' today';
+    $('qp-left').textContent = q.left;
+    $('qp-fill').style.width = pct + '%';
+    $('qp-used').textContent = q.used + ' of about ' + q.limit + ' sent in the last 24 hours.';
+    $('qp-free').textContent = q.used && q.frees_at
+      ? (q.left === 0 ? 'Next room frees up in ' : 'Your oldest mail leaves the 24-hour window in ') + when(q.frees_at) + '.'
+      : 'Nothing sent in the last 24 hours.';
+  }
+  async function load() {
+    try {
+      const r = await fetch(url, { credentials: 'same-origin' });
+      if (r.ok) paint(await r.json());
+    } catch (e) {}
+  }
+  function close() { pop.hidden = true; pill.setAttribute('aria-expanded', 'false'); }
+  pill.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const open = pop.hidden;
+    pop.hidden = !open;
+    pill.setAttribute('aria-expanded', String(open));
+    if (open) load();
+  });
+  document.addEventListener('click', function (e) { if (!pop.hidden && !pop.contains(e.target)) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  document.addEventListener('quota:update', function (e) {
+    const used = e.detail.used, limit = e.detail.limit;
+    paint({ used: used, limit: limit, left: Math.max(limit - used, 0), frees_at: null });
+    load();
+  });
+  load();
 })();
 </script>
 {% endif %}

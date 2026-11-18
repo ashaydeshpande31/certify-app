@@ -134,7 +134,7 @@ h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; }
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -696,7 +696,7 @@ tbody tr:hover { background: var(--accent-wash); }
   .position-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
-  .topbar { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 5vw; position: static; }
+  .topbar { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 5vw; position: relative; z-index: 20; }
   .topnav { flex-wrap: wrap; width: 100%; gap: 6px 4px; }
   .nav-user { display: none; }
   .brand-logo { height: 48px; }
@@ -707,3 +707,23 @@ tbody tr:hover { background: var(--accent-wash); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------------- quota pill + popup ---------------- */
+.quota-wrap { position: relative; }
+.quota-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line, rgba(128,150,200,.3)); background: var(--accent-wash); color: var(--text-hi); font: inherit; font-size: 0.82rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.quota-pill:hover { border-color: var(--accent); }
+.quota-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.quota-dot { width: 8px; height: 8px; border-radius: 50%; background: #8a93a8; }
+.quota-pill[data-state="ok"] .quota-dot { background: #3ecf8e; }
+.quota-pill[data-state="low"] .quota-dot { background: #f5b942; }
+.quota-pill[data-state="full"] .quota-dot { background: #f06a6a; }
+.quota-pop { position: absolute; right: 0; top: calc(100% + 10px); z-index: 70; width: min(320px, 90vw); padding: 16px; border-radius: 14px; background: var(--ink-800); border: 1px solid var(--accent); box-shadow: 0 18px 40px rgba(0,0,0,.35); color: var(--text); text-align: left; }
+.quota-pop[hidden] { display: none; }
+.qp-title { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; }
+.qp-big { font-size: 1.15rem; color: var(--text-hi); }
+.qp-big b { font-size: 1.7rem; }
+.qp-bar { height: 8px; border-radius: 999px; background: rgba(128,150,200,.2); margin: 10px 0; overflow: hidden; }
+.qp-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s ease; }
+.qp-line { font-size: 0.85rem; margin-top: 4px; }
+.qp-note { font-size: 0.76rem; color: var(--text-dim); margin: 10px 0 0; }
+@media (max-width: 760px) { .quota-wrap { position: static; } .quota-pop { position: absolute; left: 12px; right: 12px; top: 100%; width: auto; } }

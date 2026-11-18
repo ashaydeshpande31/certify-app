@@ -140,6 +140,24 @@ def sent_last_24h(user):
     )
 
 
+def quota_info(user):
+    """Used / limit / left for the last 24 hours, plus when the oldest sent mail
+    leaves the window (that is when room starts to free up)."""
+    since = timezone.now() - timedelta(hours=24)
+    used = sent_last_24h(user)
+    oldest = None
+    if used:
+        a = UpdateRecipient.objects.filter(campaign__owner=user, status="sent", updated_at__gte=since).order_by("updated_at").values_list("updated_at", flat=True).first()
+        b = Student.objects.filter(event__owner=user, status="sent", updated_at__gte=since).order_by("updated_at").values_list("updated_at", flat=True).first()
+        oldest = min(x for x in (a, b) if x)
+    return {
+        "used": used,
+        "limit": DAILY_LIMIT,
+        "left": max(DAILY_LIMIT - used, 0),
+        "frees_at": (oldest + timedelta(hours=24)).isoformat() if oldest else None,
+    }
+
+
 def send_update_batch(campaign, sender, batch_size=BATCH_SIZE, budget=TIME_BUDGET_SECONDS):
     """Send the update to up to `batch_size` pending recipients.
 

@@ -297,6 +297,7 @@
         setBar(d.sent_total + d.failed_total);
         const quotaEl = document.getElementById('quota-used');
         if (quotaEl) quotaEl.textContent = d.used_24h;
+        document.dispatchEvent(new CustomEvent('quota:update', { detail: { used: d.used_24h, limit: d.daily_limit } }));
         show('Sending your update',
              'Sent ' + d.sent_total + ' of ' + total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : ''),
              'Keep this page open until it finishes. Gmail usage in the last 24 hours: ' + d.used_24h + ' of about ' + d.daily_limit + '.');
@@ -325,7 +326,13 @@
   }
 
   sendBtn.addEventListener('click', function () {
-    if (confirm('Send this update to everyone still pending? Mails go out from your own Gmail account.')) run();
+    const left = {{ quota_left }}, pending = {{ pending_count }};
+    let msg = 'Send this update to everyone still pending? Mails go out from your own Gmail account.';
+    if (pending > left) {
+      msg = 'You have ' + pending + ' people waiting but only about ' + left + ' emails left in your Gmail limit right now.\n\n' +
+            'Sending will stop when Gmail refuses. The rest stay pending, and auto-continue (or pressing Send tomorrow) can finish them.\n\nSend anyway?';
+    }
+    if (confirm(msg)) run();
   });
 
   if (retryBtn) {

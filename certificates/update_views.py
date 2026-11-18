@@ -31,6 +31,7 @@ from .update_utils import (
     AUTO_RESERVE,
     BATCH_SIZE,
     DAILY_LIMIT,
+    quota_info,
     sent_last_24h,
 )
 
@@ -395,3 +396,9 @@ def delivery_search(request):
         # pending rows were never mailed, so their time means nothing
         x["when"] = stamp.isoformat() if x["status"] in ("sent", "failed", "generated") else None
     return JsonResponse({"results": rows})
+
+
+@login_required
+def quota_status(request):
+    """Small JSON used by the quota pill in the top bar."""
+    return JsonResponse(quota_info(request.user))
