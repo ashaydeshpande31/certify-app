@@ -18,9 +18,9 @@
 
   <label>Recipient list <span class="muted">(file — or type emails below)</span></label>
   <div class="file-drop">
-    <input type="file" id="id_recipients_file" name="recipients_file" accept=".xlsx,.xls,.csv,.pdf">
+    <input type="file" id="id_recipients_file" name="recipients_file" accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf">
     <div class="file-drop-label">Drop your list here, or click to browse</div>
-    <div class="file-drop-sub">.xlsx, .csv or .pdf — first row must have "Name" and "Email" column headers</div>
+    <div class="file-drop-sub">Excel, CSV, TXT or PDF — emails can be in any column, headers not required</div>
   </div>
   <div id="list-file-error" class="field-error" style="display:none;"></div>
   <div class="help-text">Duplicate emails are sent only once, and rows with an invalid email are skipped.</div>
@@ -45,7 +45,7 @@
 
 <script>
 (function () {
-  const LIST_EXT = ['.xlsx', '.xls', '.csv', '.pdf'];
+  const LIST_EXT = ['.xlsx', '.xlsm', '.xls', '.csv', '.txt', '.pdf'];
   const MAX_FILES = {{ max_attachments }};
   const MAX_BYTES = {{ max_mb }} * 1024 * 1024;
 
@@ -72,7 +72,7 @@
     if (listInput.files.length) {
       const name = listInput.files[0].name.toLowerCase();
       if (!LIST_EXT.some(function (x) { return name.endsWith(x); })) {
-        problem = 'The recipient list must be a .xlsx, .xls, .csv or .pdf file.';
+        problem = 'The recipient list must be an Excel, CSV, TXT or PDF file.';
       }
     }
     if (!problem && attachInput.files.length > MAX_FILES) {

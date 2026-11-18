@@ -21,11 +21,11 @@ from .update_utils import (
     MAX_TOTAL_ATTACHMENT_BYTES,
     clean_subject,
     guess_content_type,
+    parse_recipient_file,
     send_update_batch,
 )
-from .utils import parse_excel
 
-LIST_EXTENSIONS = (".xlsx", ".xls", ".csv", ".pdf")
+LIST_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".pdf")
 
 
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
@@ -97,7 +97,7 @@ def update_create(request):
     if not list_file and not pasted_text.strip():
         errors.append("Please upload a recipient file, or type/paste at least one email address.")
     elif list_file and not list_file.name.lower().endswith(LIST_EXTENSIONS):
-        errors.append("The recipient list must be a .xlsx, .xls, .csv or .pdf file.")
+        errors.append("The recipient list must be an Excel, CSV, TXT or PDF file.")
 
     if len(attach_files) > MAX_ATTACHMENTS:
         errors.append(f"You can attach at most {MAX_ATTACHMENTS} files.")
@@ -112,11 +112,11 @@ def update_create(request):
     rows = []
     if list_file and not errors:
         try:
-            rows = parse_excel(list_file)
+            rows = parse_recipient_file(list_file)
         except ValueError as exc:
             errors.append(str(exc))
         except Exception:  # noqa: BLE001 - corrupt / unreadable file
-            errors.append("We couldn't read that file. Please upload a valid .xlsx, .xls, .csv or .pdf list.")
+            errors.append("We couldn't read that file. Please upload a valid Excel, CSV, TXT or PDF list.")
 
     if not errors:
         rows = rows + _parse_pasted(pasted_text)

@@ -4,6 +4,8 @@ is not touched by anything here."""
 
 import base64
 import mimetypes
+import time
+from datetime import timedelta
 from email.header import Header
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -12,12 +14,18 @@ from email import encoders
 
 from django.core.mail import EmailMessage
 from django.conf import settings
+from django.utils import timezone
 
 from .utils import _get_gmail_service
 
 # How many mails one browser request sends. Small on purpose: Render's
 # gunicorn kills a request after ~30 s, and each Gmail send takes ~0.5-1 s.
-BATCH_SIZE = 8
+BATCH_SIZE = 6
+# Stop starting new sends after this many seconds so the request always
+# finishes well inside Render's timeout, even with big attachments.
+TIME_BUDGET_SECONDS = 15
+# A row stuck in 'sending' this long means its request was cut off.
+STUCK_AFTER = timedelta(minutes=3)
 
 MAX_ATTACHMENTS = 10
 MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024  # Gmail's hard cap is 25 MB per mail
@@ -92,6 +100,13 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE):
     overall), stop (True if we hit a quota/limit error and should not keep
     going) and error (the last error text, if any).
     """
+    started = time.monotonic()
+
+    # Put back anyone whose earlier request was killed mid-send (e.g. a 502).
+    campaign.recipients.filter(
+        status="sending", updated_at__lt=timezone.now() - STUCK_AFTER
+    ).update(status="pending")
+
     subject = clean_subject(campaign.subject)
     attachments = _load_attachments(campaign)
     service = _get_gmail_service(sender)
@@ -104,6 +119,8 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE):
         campaign.recipients.filter(status="pending").values_list("id", flat=True)[:batch_size]
     )
     for rid in ids:
+        if time.monotonic() - started > TIME_BUDGET_SECONDS:
+            break  # the page will simply ask for the next batch
         # Claim the row first, so two browser tabs (or a double click) can
         # never send the same person the same mail twice.
         claimed = campaign.recipients.filter(id=rid, status="pending").update(status="sending")
