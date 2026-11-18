@@ -141,3 +141,158 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE):
 
 def guess_content_type(filename):
     return mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+
+# ---------------------------------------------------------------------------
+# Flexible recipient-file reader: any column order, headers optional.
+# ---------------------------------------------------------------------------
+import csv
+import re
+from io import BytesIO, StringIO
+
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+_NAME_HEADERS = ("name", "full name", "fullname", "student name", "participant name", "your name")
+
+
+def _looks_like_name(text):
+    if not text or "@" in text or len(text) > 60:
+        return False
+    letters = sum(ch.isalpha() for ch in text)
+    return letters >= 2 and letters / len(text) >= 0.6
+
+
+def _rows_to_people(rows):
+    """Find the email column (the one holding the most email addresses) and
+    the name column (a 'Name' header if there is one, otherwise the most
+    name-looking column) in any 2-D table. Returns [{'name','email'}]."""
+    table = []
+    for r in rows:
+        cells = ["" if c is None else str(c).strip() for c in r]
+        if any(cells):
+            table.append(cells)
+    if not table:
+        return []
+
+    ncols = max(len(r) for r in table)
+    counts = [0] * ncols
+    for r in table:
+        for i, c in enumerate(r):
+            if _EMAIL_RE.search(c):
+                counts[i] += 1
+    if max(counts) == 0:
+        return []
+    email_col = counts.index(max(counts))
+
+    name_col = None
+    for r in table[:5]:  # look for a header row
+        for i, c in enumerate(r):
+            if i != email_col and c.lower() in _NAME_HEADERS:
+                name_col = i
+                break
+        if name_col is not None:
+            break
+    if name_col is None:
+        for r in table[:5]:
+            for i, c in enumerate(r):
+                if i != email_col and "name" in c.lower() and "@" not in c:
+                    name_col = i
+                    break
+            if name_col is not None:
+                break
+    if name_col is None:
+        best = 0
+        for i in range(ncols):
+            if i == email_col:
+                continue
+            score = sum(
+                1 for r in table
+                if i < len(r) and email_col < len(r) and _EMAIL_RE.search(r[email_col]) and _looks_like_name(r[i])
+            )
+            if score > best:
+                best, name_col = score, i
+
+    people = []
+    for r in table:
+        found = _EMAIL_RE.findall(r[email_col]) if email_col < len(r) else []
+        if not found:  # email sits in another column on this row
+            for c in r:
+                m = _EMAIL_RE.search(c)
+                if m:
+                    found = [m.group(0)]
+                    break
+        if not found:
+            continue
+        name = r[name_col] if name_col is not None and name_col < len(r) else ""
+        if "@" in name:
+            name = ""
+        for email in found:
+            people.append({"name": name, "email": email})
+    return people
+
+
+def _lines_to_people(text):
+    """Free text: one person per line, e.g. 'Name, email' or just 'email'."""
+    people = []
+    for line in (text or "").splitlines():
+        found = list(_EMAIL_RE.finditer(line))
+        if len(found) == 1:
+            m = found[0]
+            name = (line[: m.start()] + " " + line[m.end():]).strip(" -,;|\t<>()")
+            people.append({"name": re.sub(r"\s{2,}", " ", name), "email": m.group(0)})
+        else:
+            people.extend({"name": "", "email": m.group(0)} for m in found)
+    return people
+
+
+def parse_recipient_file(upload):
+    """Read .xlsx/.xlsm/.csv/.txt/.pdf and return [{'name','email'}].
+    No fixed layout needed. Raises ValueError with a friendly message."""
+    filename = (getattr(upload, "name", "") or "").lower()
+    upload.seek(0)
+    raw = upload.read()
+
+    if filename.endswith(".pdf"):
+        import pdfplumber
+
+        people, has_text = [], False
+        with pdfplumber.open(BytesIO(raw)) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text() or ""
+                has_text = has_text or bool(text.strip())
+                found = []
+                for table in page.extract_tables() or []:
+                    found.extend(_rows_to_people(table))
+                people.extend(found or _lines_to_people(text))
+        if not has_text:
+            raise ValueError(
+                "This PDF has no readable text (it looks like a scan or photo). "
+                "Please upload an Excel or CSV file, or type the emails in the box."
+            )
+        return people
+
+    if filename.endswith((".csv", ".txt")):
+        try:
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = raw.decode("latin-1")
+        if filename.endswith(".txt"):
+            return _lines_to_people(text)
+        try:
+            dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t|")
+        except csv.Error:
+            dialect = csv.excel
+        return _rows_to_people(list(csv.reader(StringIO(text), dialect)))
+
+    try:
+        import openpyxl
+
+        wb = openpyxl.load_workbook(BytesIO(raw), data_only=True)
+    except Exception:  # noqa: BLE001 - old .xls or corrupt file
+        raise ValueError(
+            "We couldn't open that spreadsheet. If it's an old .xls file, open it in Excel and "
+            "save it as .xlsx or .csv, then upload again."
+        )
+    people = []
+    for ws in wb.worksheets:
+        people.extend(_rows_to_people(list(ws.iter_rows(values_only=True))))
+    return people
