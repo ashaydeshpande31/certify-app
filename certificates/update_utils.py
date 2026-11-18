@@ -17,7 +17,7 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 from django.utils import timezone
 
-from .models import Student, UpdateRecipient
+from .models import ExternalUsage, Student, UpdateRecipient
 from .name_guess import guess_name_from_email
 from .utils import _get_gmail_service
 
@@ -115,8 +115,9 @@ _AUTH_HINTS = ("invalid_grant", "invalid credentials", "unauthorized", "401", "t
                "invalid_client", "unauthenticated", "insufficient")
 
 QUOTA_MESSAGE = (
-    "Google's daily sending limit was reached (about 500 emails/day on a normal Gmail). "
-    "Come back later and press send again — only people still pending will be mailed."
+    "Gmail stopped sending because your Google account reached its daily limit. Mails you sent from "
+    "Gmail itself, outside Certify, count toward that limit too. Nothing is lost: everyone not reached "
+    "is still waiting. Press send again when room frees up (the counter at the top shows when)."
 )
 AUTH_MESSAGE = (
     "Your Google sign-in expired. Log out, sign in with Google again, then press send — "
@@ -141,6 +142,10 @@ def is_quota_error(message):
 def sent_last_24h(user):
     """How many emails this user's account has sent in the last 24 hours
     (update mails and certificate mails together — Gmail counts both)."""
+    return sent_by_certify_24h(user) + outside_24h(user)
+
+
+def sent_by_certify_24h(user):
     since = timezone.now() - timedelta(hours=24)
     return (
         UpdateRecipient.objects.filter(campaign__owner=user, status="sent", updated_at__gte=since).count()
@@ -148,18 +153,49 @@ def sent_last_24h(user):
     )
 
 
+def outside_24h(user):
+    """Mails the organiser said they sent from Gmail itself in the last 24 hours."""
+    since = timezone.now() - timedelta(hours=24)
+    return sum(ExternalUsage.objects.filter(owner=user, created_at__gte=since).values_list("count", flat=True))
+
+
+def set_outside(user, n):
+    """Replace the 'sent outside Certify' number (0 clears it)."""
+    n = max(0, min(int(n), 100000))
+    ExternalUsage.objects.filter(owner=user).delete()
+    if n:
+        ExternalUsage.objects.create(owner=user, count=n)
+    return n
+
+
+def note_gmail_refused(user):
+    """Gmail said the daily limit is reached. Our count was too low, so the
+    difference must have been sent elsewhere: remember it, so the counter is
+    honest from now on. Never raises."""
+    try:
+        mine = sent_by_certify_24h(user)
+        missing = max(DAILY_LIMIT - mine, 0)
+        if missing > outside_24h(user):
+            set_outside(user, missing)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def quota_info(user):
     """Used / limit / left for the last 24 hours, plus when the oldest sent mail
     leaves the window (that is when room starts to free up)."""
     since = timezone.now() - timedelta(hours=24)
-    used = sent_last_24h(user)
+    outside = outside_24h(user)
+    used = sent_by_certify_24h(user) + outside
     oldest = None
     if used:
+        ext = ExternalUsage.objects.filter(owner=user, created_at__gte=since).order_by("created_at").values_list("created_at", flat=True).first()
         a = UpdateRecipient.objects.filter(campaign__owner=user, status="sent", updated_at__gte=since).order_by("updated_at").values_list("updated_at", flat=True).first()
         b = Student.objects.filter(event__owner=user, status="sent", updated_at__gte=since).order_by("updated_at").values_list("updated_at", flat=True).first()
-        oldest = min(x for x in (a, b) if x)
+        oldest = min(x for x in (a, b, ext) if x)
     return {
         "used": used,
+        "outside": outside,
         "limit": DAILY_LIMIT,
         "left": max(DAILY_LIMIT - used, 0),
         "frees_at": (oldest + timedelta(hours=24)).isoformat() if oldest else None,
@@ -274,6 +310,8 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE, budget=TIME_BUDGE
                 recipient.error_message = ""
                 recipient.save()
                 stop = True
+                if is_quota_error(text):
+                    note_gmail_refused(campaign.owner)
                 last_error = QUOTA_MESSAGE if is_quota_error(text) else AUTH_MESSAGE
                 break
             last_error = text

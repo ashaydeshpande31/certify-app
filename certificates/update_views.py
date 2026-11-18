@@ -16,6 +16,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from .email_tools import suggest_email, tidy_name
@@ -36,6 +37,7 @@ from .update_utils import (
     notify_owner_finished,
     quota_info,
     sent_last_24h,
+    set_outside,
 )
 
 LIST_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".pdf")
@@ -451,8 +453,21 @@ def delivery_search(request):
 
 
 @login_required
+@ensure_csrf_cookie
 def quota_status(request):
     """Small JSON used by the quota pill in the top bar."""
+    return JsonResponse(quota_info(request.user))
+
+
+@login_required
+@require_POST
+def quota_outside(request):
+    """Save how many mails the organiser already sent from Gmail itself today."""
+    try:
+        n = int((request.POST.get("count") or "0").strip() or 0)
+    except ValueError:
+        return JsonResponse({"error": "Enter a whole number."}, status=400)
+    set_outside(request.user, n)
     return JsonResponse(quota_info(request.user))
 
 

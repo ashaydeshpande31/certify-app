@@ -487,6 +487,7 @@ def send_certificate_batch(event, sender, batch_size=None, budget=None, start=Fa
         last_error = err
         if _uu.is_quota_error(err):
             students.filter(id=sid).update(status="pending", error_message="")
+            _uu.note_gmail_refused(event.owner)
             last_error, stop = _uu.QUOTA_MESSAGE, True
             break
         if _uu.is_auth_error(err):

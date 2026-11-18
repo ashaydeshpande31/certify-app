@@ -879,3 +879,11 @@ legend { padding:0; }
   .mark3d.sway { animation: mark-sway 4.5s ease-in-out infinite; }
 }
 @media (max-width: 720px) { .brand { font-size: 40px; } }
+
+/* "already sent from Gmail itself" inputs */
+.qp-outside, .cs-outside { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--ink-border); }
+.qp-outside label, .cs-outside label { display: block; font-size: .82rem; font-weight: 600; color: var(--text-hi); margin: 0 0 6px; }
+.qp-out-row { display: flex; gap: 8px; }
+.qp-out-row input, .cs-outside input { width: 100%; min-height: 40px; }
+.qp-out-row .btn { margin: 0; padding: 8px 14px; min-height: 40px; }
+.qp-out-help { font-size: .76rem; color: var(--text-dim); margin: 6px 0 0; }

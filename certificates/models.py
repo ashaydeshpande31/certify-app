@@ -146,6 +146,22 @@ class UpdateRecipient(models.Model):
         return f"{self.name} <{self.email}>"
 
 
+class ExternalUsage(models.Model):
+    """Emails the organiser says they already sent from Gmail itself today.
+
+    Certify can only count the mails it sent, but Gmail's daily limit counts
+    every mail from the account. The organiser tells us how many went out
+    elsewhere, and that number counts in the 24-hour window.
+    """
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="external_usage")
+    count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.owner} sent {self.count} outside Certify"
+
+
 class UpdateAttachment(models.Model):
     """Optional poster / photo / file attached to every mail of a campaign.
 
