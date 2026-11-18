@@ -22,6 +22,9 @@
   h1 { margin:0 0 10px; font-size:1.5rem; color:var(--hi); line-height:1.25; }
   p { margin:0 0 12px; }
   .small { font-size:.88rem; opacity:.85; }
+  .actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:8px; }
+  .actions a, .actions button { margin-top:0; }
+  .actions a.ghost { background:transparent; color:var(--hi); border:1px solid var(--line); }
   a.btn, button { display:inline-block; margin-top:8px; padding:11px 22px; border-radius:10px; border:0; cursor:pointer;
                   background:var(--accent); color:#fff; font:inherit; font-weight:600; text-decoration:none; }
 </style>
@@ -36,7 +39,10 @@
   <h1>This app is paused for now</h1>
   <p>The owner of Certify needs to renew the service behind it. The site will work again as soon as that is done.</p>
   <p class="small">Please try again a little later. This page checks again by itself every minute and a half.</p>
-  <button type="button" onclick="location.reload()">Try again</button>
+  <div class="actions">
+    <button type="button" onclick="location.reload()">Try again</button>
+    <a class="btn ghost" href="https://www.linkedin.com/in/ashay-deshpande-554683387" target="_blank" rel="noopener noreferrer">Contact the owner</a>
+  </div>
 </main>
 </body>
 </html>
