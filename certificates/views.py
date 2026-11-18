@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 
 from .forms import EventCreateForm
-from .models import Event, Student
+from .models import Event, Student, UpdateCampaign
 from .utils import parse_excel, generate_certificate_pdf, send_certificate_email
 
 
@@ -22,9 +22,11 @@ def terms_of_service(request):
 def home(request):
     if request.user.is_authenticated:
         events = Event.objects.filter(owner=request.user).order_by("-created_at")
+        update_campaigns = UpdateCampaign.objects.filter(owner=request.user).order_by("-created_at")
     else:
         events = Event.objects.none()
-    return render(request, "certificates/home.html", {"events": events})
+        update_campaigns = UpdateCampaign.objects.none()
+    return render(request, "certificates/home.html", {"events": events, "update_campaigns": update_campaigns})
 
 
 @login_required

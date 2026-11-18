@@ -73,3 +73,79 @@ class Student(models.Model):
 
     def __str__(self):
         return f"{self.name} <{self.email}>"
+
+
+class UpdateCampaign(models.Model):
+    """A plain "send an update" mail to a list of people (no certificate).
+
+    Used for things like hackathon announcements: one subject, one message
+    exactly as the organiser typed it, an optional poster/photos, and a
+    recipient list imported from a file.
+    """
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="update_campaigns",
+    )
+    subject = models.CharField(max_length=200)
+    message = models.TextField(help_text="Sent to every recipient exactly as written.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.subject
+
+    @property
+    def total(self):
+        return self.recipients.count()
+
+    @property
+    def sent_count(self):
+        return self.recipients.filter(status="sent").count()
+
+    @property
+    def failed_count(self):
+        return self.recipients.filter(status="failed").count()
+
+    @property
+    def pending_count(self):
+        return self.recipients.filter(status__in=["pending", "sending"]).count()
+
+
+class UpdateRecipient(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("sending", "Sending"),
+        ("sent", "Sent"),
+        ("failed", "Failed"),
+    ]
+
+    campaign = models.ForeignKey(UpdateCampaign, on_delete=models.CASCADE, related_name="recipients")
+    name = models.CharField(max_length=200)
+    email = models.EmailField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    error_message = models.CharField(max_length=300, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.name} <{self.email}>"
+
+
+class UpdateAttachment(models.Model):
+    """Optional poster / photo / file attached to every mail of a campaign.
+
+    The bytes live in the database (not on disk) so they survive Render
+    redeploys, which wipe the local filesystem.
+    """
+
+    campaign = models.ForeignKey(UpdateCampaign, on_delete=models.CASCADE, related_name="attachments")
+    filename = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100, default="application/octet-stream")
+    data = models.BinaryField()
+    size = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.filename

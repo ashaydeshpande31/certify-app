@@ -1,0 +1,92 @@
+{% extends "certificates/base.html" %}
+{% block title %}Send an update{% endblock %}
+{% block content %}
+
+<div class="section-head">
+  <h2>Send an update</h2>
+</div>
+
+<form class="form-card" method="post" enctype="multipart/form-data" id="update-form">
+  {% csrf_token %}
+
+  <label for="id_subject">Subject</label>
+  <input type="text" id="id_subject" name="subject" maxlength="200" value="{{ subject }}" placeholder="e.g. Vibe-A-Thon — Round 1 details inside" required>
+
+  <label for="id_message">Your message</label>
+  <textarea id="id_message" name="message" rows="12" placeholder="Write the mail exactly as you want people to read it." required>{{ message }}</textarea>
+  <div class="help-text">Every person receives this text exactly as you write it here — nothing is added before or after. Want to greet each person by name? Type <b>{name}</b> where the name should go, e.g. "Hi {name},".</div>
+
+  <label>Recipient list</label>
+  <div class="file-drop">
+    <input type="file" id="id_recipients_file" name="recipients_file" accept=".xlsx,.xls,.csv,.pdf" required>
+    <div class="file-drop-label">Drop your list here, or click to browse</div>
+    <div class="file-drop-sub">.xlsx, .csv or .pdf — first row must have "Name" and "Email" column headers</div>
+  </div>
+  <div id="list-file-error" class="field-error" style="display:none;"></div>
+  <div class="help-text">Duplicate emails are sent only once, and rows with an invalid email are skipped.</div>
+
+  <label>Poster or photos <span class="muted">(optional)</span></label>
+  <div class="file-drop">
+    <input type="file" id="id_attachments" name="attachments" multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt">
+    <div class="file-drop-label">Add your poster or photos — or skip this</div>
+    <div class="file-drop-sub">Up to {{ max_attachments }} files, {{ max_mb }} MB in total. Sent as attachments with every mail.</div>
+  </div>
+  <div class="help-text">Not needed? Leave it empty and only your text is sent.</div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" id="submit-btn">Continue →</button>
+    <a href="{% url 'home' %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+
+<script>
+(function () {
+  const LIST_EXT = ['.xlsx', '.xls', '.csv', '.pdf'];
+  const MAX_FILES = {{ max_attachments }};
+  const MAX_BYTES = {{ max_mb }} * 1024 * 1024;
+
+  const form = document.getElementById('update-form');
+  const listInput = document.getElementById('id_recipients_file');
+  const listError = document.getElementById('list-file-error');
+  const attachInput = document.getElementById('id_attachments');
+
+  function labelOf(input) { return input.closest('.file-drop').querySelector('.file-drop-label'); }
+  const attachDefault = labelOf(attachInput).textContent;
+
+  listInput.addEventListener('change', function () {
+    if (listInput.files.length) labelOf(listInput).textContent = listInput.files[0].name;
+  });
+
+  attachInput.addEventListener('change', function () {
+    const n = attachInput.files.length;
+    if (!n) { labelOf(attachInput).textContent = attachDefault; return; }
+    labelOf(attachInput).textContent = n === 1 ? attachInput.files[0].name : n + ' files selected';
+  });
+
+  form.addEventListener('submit', function (e) {
+    let problem = '';
+    if (listInput.files.length) {
+      const name = listInput.files[0].name.toLowerCase();
+      if (!LIST_EXT.some(function (x) { return name.endsWith(x); })) {
+        problem = 'The recipient list must be a .xlsx, .xls, .csv or .pdf file.';
+      }
+    }
+    if (!problem && attachInput.files.length > MAX_FILES) {
+      problem = 'You can attach at most ' + MAX_FILES + ' files.';
+    }
+    if (!problem) {
+      let total = 0;
+      for (const f of attachInput.files) total += f.size;
+      if (total > MAX_BYTES) problem = 'Attachments are too big together — keep them under {{ max_mb }} MB in total.';
+    }
+    if (problem) {
+      e.preventDefault();
+      listError.textContent = problem;
+      listError.style.display = 'block';
+      listError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+})();
+</script>
+
+{% endblock %}

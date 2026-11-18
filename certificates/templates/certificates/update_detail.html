@@ -1,0 +1,185 @@
+{% extends "certificates/base.html" %}
+{% block title %}{{ campaign.subject }}{% endblock %}
+{% block content %}
+
+<div class="toolbar">
+  <div>
+    <div class="section-head" style="margin-bottom:4px;">
+      <h2>{{ campaign.subject }}</h2>
+    </div>
+    <span class="muted" id="summary-line">{{ total }} people · {{ sent_count }} sent · {{ pending_count }} to send{% if failed_count %} · {{ failed_count }} failed{% endif %}</span>
+  </div>
+  <div class="toolbar-actions">
+    {% if failed_count %}
+      <button type="button" class="btn btn-ghost" id="retry-btn">Retry {{ failed_count }} failed</button>
+    {% endif %}
+    <button type="button" class="btn btn-primary" id="send-btn" {% if not pending_count %}disabled{% endif %}>
+      {% if pending_count %}Send to {{ pending_count }} pending →{% else %}Everyone has been sent this{% endif %}
+    </button>
+  </div>
+</div>
+
+<div id="progress-card" class="form-card" style="display:none; margin-bottom:24px; max-width:none;">
+  <div id="progress-text" style="font-weight:600; margin-bottom:10px;">Starting…</div>
+  <div style="height:10px; background:var(--ink-700); border-radius:999px; overflow:hidden;">
+    <div id="progress-bar" style="height:100%; width:0%; background:var(--gold-500); transition:width .3s;"></div>
+  </div>
+  <div class="help-text" id="progress-note">Keep this page open until it finishes. If you close it, come back and press send again — people who already got the mail are skipped.</div>
+</div>
+
+{% if total > 450 %}
+<div class="flash flash-error" style="margin-bottom:24px;">
+  This list has {{ total }} people. A normal @gmail.com account can send about 500 emails per day (Google Workspace: about 2,000). If Google's limit is hit, sending stops by itself — come back tomorrow and press send again to continue with the rest.
+</div>
+{% endif %}
+
+<div class="form-card" style="margin-bottom:24px; max-width:none;">
+  <label style="margin-top:0;">What people receive</label>
+  <div class="muted" style="margin-bottom:6px;">Subject: <b style="color:var(--text-hi);">{{ campaign.subject }}</b></div>
+  <pre style="white-space:pre-wrap; word-wrap:break-word; font-family:inherit; font-size:0.95rem; background:var(--ink-700); border:1px solid var(--ink-border); border-radius:10px; padding:16px; margin:0;">{{ campaign.message }}</pre>
+  {% if attachments %}
+    <div class="help-text" style="margin-top:10px;">Attached to every mail:
+      {% for a in attachments %}<b>{{ a.filename }}</b>{% if not forloop.last %}, {% endif %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="help-text" style="margin-top:10px;">No attachments — text only.</div>
+  {% endif %}
+  <div class="form-actions">
+    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-card').style.display='block'; this.style.display='none';">Edit subject / message</button>
+  </div>
+</div>
+
+<form method="post" action="{% url 'update_edit' campaign.id %}" class="form-card" id="edit-card" style="display:none; margin-bottom:24px; max-width:none;">
+  {% csrf_token %}
+  <label for="edit-subject" style="margin-top:0;">Subject</label>
+  <input type="text" id="edit-subject" name="subject" maxlength="200" value="{{ campaign.subject }}" required>
+  <label for="edit-message">Message</label>
+  <textarea id="edit-message" name="message" rows="10" required>{{ campaign.message }}</textarea>
+  <div class="help-text">Only people who haven't received the mail yet will get the edited version.</div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+  </div>
+</form>
+
+<form method="post" action="{% url 'update_add_recipient' campaign.id %}" class="form-card" style="margin-bottom:24px; max-width:none;">
+  {% csrf_token %}
+  <label style="margin-top:0;">Add one more person</label>
+  <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+    <div style="flex:1 1 200px;">
+      <input type="text" name="name" placeholder="Name (optional)">
+    </div>
+    <div style="flex:1 1 220px;">
+      <input type="email" name="email" placeholder="email@example.com" required>
+    </div>
+    <button type="submit" class="btn btn-ghost btn-sm">Add</button>
+  </div>
+</form>
+
+<div class="table-card">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in recipients %}
+      <tr>
+        <td class="cell-sno muted">{{ forloop.counter }}</td>
+        <td class="cell-name">{{ r.name }}</td>
+        <td class="cell-email">{{ r.email }}</td>
+        <td>
+          {% if r.status == "sent" %}
+            <span class="seal-badge seal-sent"><span class="dot"></span> Sent</span>
+          {% elif r.status == "failed" %}
+            <span class="seal-badge seal-failed"><span class="dot"></span> Failed</span>
+            {% if r.error_message %}<div class="muted" style="font-size:0.75rem; margin-top:4px; max-width:420px;">{{ r.error_message }}</div>{% endif %}
+          {% else %}
+            <span class="seal-badge seal-pending"><span class="dot"></span> Pending</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="muted" style="text-align:center;padding:40px;">No recipients.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+(function () {
+  const sendUrl = "{% url 'update_send_batch' campaign.id %}";
+  const resetUrl = "{% url 'update_reset_failed' campaign.id %}";
+  const csrf = "{{ csrf_token }}";
+  const total = {{ total }};
+
+  const sendBtn = document.getElementById('send-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const card = document.getElementById('progress-card');
+  const text = document.getElementById('progress-text');
+  const bar = document.getElementById('progress-bar');
+  const note = document.getElementById('progress-note');
+
+  function post(url) {
+    return fetch(url, { method: 'POST', headers: { 'X-CSRFToken': csrf }, credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Server error (' + r.status + ')');
+        return r.json();
+      });
+  }
+
+  function lock(disabled) {
+    sendBtn.disabled = disabled;
+    if (retryBtn) retryBtn.disabled = disabled;
+  }
+
+  async function run() {
+    lock(true);
+    card.style.display = 'block';
+    let failedThisRun = 0;
+    try {
+      while (true) {
+        const d = await post(sendUrl);
+        failedThisRun += d.failed;
+        const done = d.sent_total + d.failed_total;
+        bar.style.width = (total ? Math.round((done / total) * 100) : 100) + '%';
+        text.textContent = 'Sent ' + d.sent_total + ' of ' + total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : '') + '…';
+        if (d.stop) {
+          note.textContent = 'Google\'s sending limit was reached, so sending stopped. Come back later (the limit resets within 24 hours) and press send again — only the people still pending will be mailed. Reason: ' + d.error;
+          text.textContent = 'Paused at ' + d.sent_total + ' of ' + total + ' sent.';
+          return;
+        }
+        if (!d.remaining) break;
+        if (d.sent === 0 && d.failed === 0) break; // nothing could be claimed — avoid spinning
+      }
+      text.textContent = 'Finished.';
+      note.textContent = failedThisRun ? 'Some mails failed — see the Failed rows below, then use "Retry failed".' : 'Everyone has been sent the update.';
+      setTimeout(function () { window.location.reload(); }, 1500);
+    } catch (err) {
+      text.textContent = 'Stopped: ' + err.message;
+      note.textContent = 'Check your connection and press send again — people already sent are skipped.';
+      lock(false);
+    }
+  }
+
+  sendBtn.addEventListener('click', function () {
+    if (confirm('Send this update to everyone still pending? Mails go out from your own Gmail account.')) run();
+  });
+
+  if (retryBtn) {
+    retryBtn.addEventListener('click', async function () {
+      try {
+        await post(resetUrl);
+        run();
+      } catch (err) {
+        alert('Could not reset the failed ones: ' + err.message);
+      }
+    });
+  }
+})();
+</script>
+
+{% endblock %}

@@ -2,6 +2,40 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 
+{% if user.is_authenticated %}
+<style>
+  .choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }
+  .choice-card {
+    display: block; color: inherit; text-decoration: none;
+    background: var(--ink-800); border: 1px solid var(--ink-border);
+    border-radius: 16px; padding: 28px;
+    transition: border-color .15s, transform .15s;
+  }
+  .choice-card:hover { border-color: var(--gold-500); transform: translateY(-2px); }
+  .choice-card .choice-icon { font-size: 1.8rem; margin-bottom: 12px; }
+  .choice-card h3 { font-family: var(--display); font-size: 1.3rem; margin: 0 0 8px; }
+  .choice-card p { color: var(--text-mid); font-size: 0.92rem; margin: 0 0 16px; }
+  .choice-card .choice-go { color: var(--gold-300); font-weight: 600; font-size: 0.9rem; }
+</style>
+<div class="section-head">
+  <h2>What do you want to do?</h2>
+</div>
+<div class="choice-grid">
+  <a href="{% url 'create_event' %}" class="choice-card">
+    <div class="choice-icon">🎓</div>
+    <h3>Send certificates</h3>
+    <p>Upload a participant sheet and a certificate design. Every person gets their own certificate with their name on it.</p>
+    <span class="choice-go">Create a certificate event →</span>
+  </a>
+  <a href="{% url 'update_create' %}" class="choice-card">
+    <div class="choice-icon">📣</div>
+    <h3>Send updates</h3>
+    <p>Write one message, upload a Name + Email list, and mail it to everyone — with a poster or photos if you want (optional).</p>
+    <span class="choice-go">Write an update →</span>
+  </a>
+</div>
+{% endif %}
+
 <section class="hero">
   <div>
     <div class="hero-eyebrow">Excel in → Certificates out</div>
@@ -79,6 +113,44 @@
   <p>No events yet. Create one to upload your first certificate template and student list.</p>
   <a href="{% url 'create_event' %}" class="btn btn-primary" style="margin-top:14px;">+ New Event</a>
 </div>
+{% endif %}
+
+{% if user.is_authenticated %}
+<div class="section-head" style="margin-top:40px;">
+  <h2>Your updates</h2>
+  <span class="muted">{{ update_campaigns|length }} update{{ update_campaigns|length|pluralize }}</span>
+</div>
+
+{% if update_campaigns %}
+<div class="event-grid">
+  {% for campaign in update_campaigns %}
+  <div class="event-card" style="position:relative;">
+    <a href="{% url 'update_detail' campaign.id %}" style="display:block;color:inherit;text-decoration:none;">
+      <h3>{{ campaign.subject }}</h3>
+      <span class="muted">{{ campaign.created_at|date:"j M Y" }}</span>
+      <div class="event-stats">
+        <span><b>{{ campaign.total }}</b> people</span>
+        <span><b>{{ campaign.sent_count }}</b> sent</span>
+      </div>
+      {% if campaign.pending_count %}
+        <span class="seal-badge seal-pending"><span class="dot"></span> {{ campaign.pending_count }} to send</span>
+      {% else %}
+        <span class="seal-badge seal-sent"><span class="dot"></span> All sent</span>
+      {% endif %}
+    </a>
+    <form method="post" action="{% url 'update_delete' campaign.id %}" onsubmit="return confirm('Delete this update and its recipient list? This cannot be undone.');" style="margin-top:12px;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-danger">Delete update</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No updates yet. Write one to announce something to a whole list of people.</p>
+  <a href="{% url 'update_create' %}" class="btn btn-primary" style="margin-top:14px;">+ New Update</a>
+</div>
+{% endif %}
 {% endif %}
 
 {% endblock %}

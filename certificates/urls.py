@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, update_views
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -16,4 +16,13 @@ urlpatterns = [
     path("event/<int:event_id>/send/", views.send_all, name="send_all"),
     path("event/<int:event_id>/send/<int:student_id>/", views.send_one, name="send_one"),
     path("verify/<uuid:cert_id>/", views.verify_certificate, name="verify_certificate"),
+
+    # "Send Updates" section (announcement emails, no certificate)
+    path("updates/new/", update_views.update_create, name="update_create"),
+    path("updates/<int:campaign_id>/", update_views.update_detail, name="update_detail"),
+    path("updates/<int:campaign_id>/edit/", update_views.update_edit, name="update_edit"),
+    path("updates/<int:campaign_id>/add/", update_views.update_add_recipient, name="update_add_recipient"),
+    path("updates/<int:campaign_id>/send-batch/", update_views.update_send_batch, name="update_send_batch"),
+    path("updates/<int:campaign_id>/reset-failed/", update_views.update_reset_failed, name="update_reset_failed"),
+    path("updates/<int:campaign_id>/delete/", update_views.update_delete, name="update_delete"),
 ]

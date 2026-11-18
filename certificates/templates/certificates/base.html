@@ -20,6 +20,7 @@
   <nav class="topnav">
     {% if user.is_authenticated %}
       <a href="{% url 'home' %}">Events</a>
+      <a href="{% url 'update_create' %}">Send Update</a>
       <a href="{% url 'create_event' %}" class="nav-cta">+ New Event</a>
       <span class="muted" style="margin-left:8px;">{{ user.email|default:user.username }}</span>
       <a href="{% url 'account_logout' %}">Log out</a>
