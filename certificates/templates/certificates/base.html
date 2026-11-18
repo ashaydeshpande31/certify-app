@@ -5,6 +5,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a1020">
+<meta name="description" content="{% block description %}Send personalised certificates and event updates to your participants from your own Gmail. Free for event organisers and student clubs.{% endblock %}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Certify">
+<meta property="og:title" content="{% block og_title %}Certify — certificates and event updates{% endblock %}">
+<meta property="og:description" content="Send personalised certificates and event updates to your participants from your own Gmail.">
+<meta name="twitter:card" content="summary">
 <title>{% block title %}Certify{% endblock %} — Certify</title>
 <link rel="icon" type="image/svg+xml" href="{% static 'certificates/img/certify-mark.svg' %}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,6 +22,7 @@
 </script>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to main content</a>
 <div class="airmail" aria-hidden="true"></div>
 
 <header class="topbar">
@@ -27,7 +34,7 @@
     {% if user.is_authenticated %}
     <div class="quota-wrap">
         <button type="button" class="quota-pill" id="quota-pill" aria-expanded="false" aria-controls="quota-pop" title="Gmail sending limit">
-          <span class="quota-dot" id="quota-dot"></span><span id="quota-pill-text">… / …</span>
+          <span class="quota-dot" id="quota-dot" aria-hidden="true"></span><span id="quota-pill-text">… / …</span>
         </button>
         <div class="quota-pop" id="quota-pop" role="dialog" aria-label="Gmail sending limit" hidden>
           <div class="qp-title">Sending limit, last 24 hours</div>
@@ -49,25 +56,25 @@
     {% else %}
     <a href="/accounts/google/login/?process=login" class="nav-cta nav-signin">Sign in with Google</a>
     {% endif %}
-    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between dark and light theme">🌙</button>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between dark and light theme"><span aria-hidden="true">🌙</span></button>
   </div>
 </header>
 
 {% if messages %}
-<div class="flash-stack">
+<div class="flash-stack" role="status" aria-live="polite">
   {% for message in messages %}
     <div class="flash flash-{{ message.tags }}">{{ message }}</div>
   {% endfor %}
 </div>
 {% endif %}
 
-<main class="page">
+<main class="page" id="main" tabindex="-1">
 {% block content %}{% endblock %}
 </main>
 
 <footer class="footer">
   <span>Certify — certificates and event updates for organizers.</span>
-  <span style="margin-left:16px;"><a href="{% url 'privacy_policy' %}">Privacy Policy</a></span>
+  <span style="margin-left:16px;"><a href="{% url 'privacy_policy' %}">Privacy Policy</a> · <a href="{% url 'terms_of_service' %}">Terms</a></span>
 </footer>
 {% if user.is_authenticated %}
 <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
@@ -82,6 +89,7 @@
     <button type="button" class="dr-scope-all" id="drawer-scope-all">Search all</button>
   </div>
   <div class="dr-counts" id="drawer-counts" hidden></div>
+  <label for="drawer-q" class="sr-only">Name or email</label>
   <input type="search" id="drawer-q" class="drawer-input" placeholder="Name or email" autocomplete="off">
   <div class="drawer-results" id="drawer-results" aria-live="polite"></div>
   <p class="drawer-foot">"Sent" means Gmail accepted the mail. If an address doesn't exist, Gmail usually puts a "Delivery Status Notification" bounce message in your own inbox.</p>
@@ -135,13 +143,16 @@
     applyScope();
     drawer.classList.add('open');
     drawer.setAttribute('aria-hidden', 'false');
+    drawer.inert = false;
     backdrop.hidden = false;
     document.body.style.overflow = 'hidden';
-    if (scope) { search(''); } else { setTimeout(function () { input.focus(); }, 60); }
+    if (scope) { search(''); }
+    setTimeout(function () { input.focus(); }, 60);
   }
   function closeDrawer() {
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
+    drawer.inert = true;
     backdrop.hidden = true;
     document.body.style.overflow = '';
     if (lastFocus && lastFocus.focus) lastFocus.focus();
@@ -228,6 +239,15 @@
     }
   }
 
+  drawer.inert = true;
+  drawer.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
+    const f = Array.prototype.filter.call(drawer.querySelectorAll('button, a[href], input'), function (n) { return !n.disabled && n.offsetParent !== null; });
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
   openBtn.addEventListener('click', function () { openDrawer(null); });
   document.addEventListener('click', function (e) {
     const b = e.target.closest ? e.target.closest('[data-check-kind]') : null;
@@ -252,7 +272,7 @@
 {% endif %}
 {% if user.is_authenticated %}
 <div class="cs-backdrop" id="cs-backdrop" hidden>
-  <div class="cs-modal" role="dialog" aria-modal="true" aria-labelledby="cs-title">
+  <div class="cs-modal" role="alertdialog" aria-describedby="cs-msg" aria-modal="true" aria-labelledby="cs-title">
     <h2 id="cs-title">Ready to send?</h2>
     <p class="cs-count" id="cs-count"></p>
     <div class="qp-bar"><span id="cs-fill"></span></div>
@@ -270,11 +290,20 @@
   const url = "{% url 'quota_status' %}";
   const $ = function (id) { return document.getElementById(id); };
   let resolver = null;
-  function done(v) { bd.hidden = true; document.body.style.overflow = ''; if (resolver) { resolver(v); resolver = null; } }
+  let back = null;
+  function done(v) { bd.hidden = true; document.body.style.overflow = ''; if (back && back.focus) back.focus(); if (resolver) { resolver(v); resolver = null; } }
   $('cs-cancel').addEventListener('click', function () { done(false); });
   $('cs-ok').addEventListener('click', function () { done(true); });
   bd.addEventListener('click', function (e) { if (e.target === bd) done(false); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !bd.hidden) done(false); });
+  document.addEventListener('keydown', function (e) {
+    if (bd.hidden) return;
+    if (e.key === 'Escape') done(false);
+    if (e.key === 'Tab') {
+      const a = $('cs-cancel'), b = $('cs-ok');
+      if (e.shiftKey && document.activeElement === a) { e.preventDefault(); b.focus(); }
+      else if (!e.shiftKey && document.activeElement === b) { e.preventDefault(); a.focus(); }
+    }
+  });
   // window.certifyConfirmSend(n, what) -> Promise<boolean>; n = how many emails this send will try
   window.certifyConfirmSend = async function (n, what) {
     let q = null;
@@ -293,6 +322,7 @@
     $('cs-msg').textContent = msg;
     $('cs-msg').dataset.warn = (q.left === 0 || n > q.left) ? '1' : '';
     $('cs-ok').textContent = q.left === 0 || n > q.left ? 'Send anyway' : 'Send ' + n;
+    back = document.activeElement;
     bd.hidden = false; document.body.style.overflow = 'hidden';
     setTimeout(function () { $('cs-ok').focus(); }, 50);
     return new Promise(function (res) { resolver = res; });
@@ -357,13 +387,13 @@
     let saved = 'dark';
     try { saved = localStorage.getItem('certify-theme') || 'dark'; } catch (e) {}
     root.setAttribute('data-theme', saved);
-    btn.textContent = saved === 'dark' ? '🌙' : '☀️';
+    btn.firstElementChild.textContent = saved === 'dark' ? '🌙' : '☀️';
 
     btn.addEventListener('click', function () {
       const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', next);
       try { localStorage.setItem('certify-theme', next); } catch (e) {}
-      btn.textContent = next === 'dark' ? '🌙' : '☀️';
+      btn.firstElementChild.textContent = next === 'dark' ? '🌙' : '☀️';
     });
   })();
 </script>

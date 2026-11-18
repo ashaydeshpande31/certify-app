@@ -16,6 +16,10 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     template_image = models.ImageField(upload_to="templates/")
+    # A copy of the design image kept in the database. Render's disk is wiped on
+    # every deploy, so the file above can disappear; this copy never does.
+    template_data = models.BinaryField(null=True, blank=True)
+    template_type = models.CharField(max_length=60, blank=True, default="")
     excel_file = models.FileField(upload_to="excels/", blank=True, null=True)
 
     message = models.TextField(
@@ -55,6 +59,7 @@ class Student(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("generated", "Generated"),
+        ("sending", "Sending"),
         ("sent", "Sent"),
         ("failed", "Failed"),
     ]
@@ -70,6 +75,7 @@ class Student(models.Model):
 
     class Meta:
         ordering = ["name"]
+        indexes = [models.Index(fields=["event", "status"], name="cert_stud_event_status_idx")]
 
     def __str__(self):
         return f"{self.name} <{self.email}>"
@@ -134,6 +140,7 @@ class UpdateRecipient(models.Model):
 
     class Meta:
         ordering = ["id"]
+        indexes = [models.Index(fields=["campaign", "status"], name="cert_updrec_camp_status_idx")]
 
     def __str__(self):
         return f"{self.name} <{self.email}>"

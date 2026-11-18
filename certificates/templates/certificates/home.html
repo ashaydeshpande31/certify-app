@@ -86,8 +86,8 @@
       <h3>{{ event.name }}</h3>
       <span class="muted">{{ event.organizer|default:"Independent event" }}</span>
       <div class="event-stats">
-        <span><b>{{ event.total_students }}</b> students</span>
-        <span><b>{{ event.sent_count }}</b> sent</span>
+        <span><b>{{ event.n_students }}</b> students</span>
+        <span><b>{{ event.n_sent }}</b> sent</span>
       </div>
       {% if event.is_configured %}
         <span class="seal-badge seal-generated"><span class="dot"></span> Ready to send</span>
@@ -125,11 +125,11 @@
       <h3>{{ campaign.subject }}</h3>
       <span class="muted">{{ campaign.created_at|date:"j M Y" }}</span>
       <div class="event-stats">
-        <span><b>{{ campaign.total }}</b> people</span>
-        <span><b>{{ campaign.sent_count }}</b> sent</span>
+        <span><b>{{ campaign.n_total }}</b> people</span>
+        <span><b>{{ campaign.n_sent }}</b> sent</span>
       </div>
-      {% if campaign.pending_count %}
-        <span class="seal-badge seal-pending"><span class="dot"></span> {{ campaign.pending_count }} left to send</span>
+      {% if campaign.n_pending %}
+        <span class="seal-badge seal-pending"><span class="dot"></span> {{ campaign.n_pending }} left to send</span>
       {% else %}
         <span class="seal-badge seal-sent"><span class="dot"></span> All sent</span>
       {% endif %}

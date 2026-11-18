@@ -3,8 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
 import logging
+from io import BytesIO
 
-from django.http import HttpResponse
+from django.db.models import Count, Q
+from django.http import Http404, HttpResponse, JsonResponse
+from PIL import Image
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.views.defaults import server_error as _default_server_error
@@ -14,7 +17,16 @@ from django.utils import timezone
 from .forms import EventCreateForm
 from .models import Event, Student, UpdateCampaign
 from .email_tools import suggest_email, tidy_name
-from .utils import name_needs_shrink, parse_excel, generate_certificate_pdf, send_certificate_email
+from .utils import (
+    get_template_bytes,
+    name_needs_shrink,
+    parse_excel,
+    render_certificate_pdf_bytes,
+    send_certificate_batch,
+    send_certificate_email,
+    store_template_copy,
+)
+from .update_utils import DAILY_LIMIT, sent_last_24h
 
 
 logger = logging.getLogger(__name__)
@@ -56,14 +68,32 @@ def privacy_policy(request):
     return render(request, "certificates/privacy.html", {"last_updated": timezone.now().strftime("%B %Y")})
 
 
+def robots_txt(request):
+    body = "User-agent: *\nAllow: /$\nAllow: /privacy/\nAllow: /terms/\nDisallow: /\n"
+    return HttpResponse(body, content_type="text/plain")
+
+
 def terms_of_service(request):
     return render(request, "certificates/terms.html", {"last_updated": timezone.now().strftime("%B %Y")})
 
 
 def home(request):
     if request.user.is_authenticated:
-        events = Event.objects.filter(owner=request.user).order_by("-created_at")
-        update_campaigns = UpdateCampaign.objects.filter(owner=request.user).order_by("-created_at")
+        # counts come from the same query (no extra query per card)
+        events = (
+            Event.objects.filter(owner=request.user)
+            .annotate(n_students=Count("students", distinct=True), n_sent=Count("students", filter=Q(students__status="sent"), distinct=True))
+            .order_by("-created_at")
+        )
+        update_campaigns = (
+            UpdateCampaign.objects.filter(owner=request.user)
+            .annotate(
+                n_total=Count("recipients", distinct=True),
+                n_sent=Count("recipients", filter=Q(recipients__status="sent"), distinct=True),
+                n_pending=Count("recipients", filter=Q(recipients__status__in=["pending", "sending"]), distinct=True),
+            )
+            .order_by("-created_at")
+        )
     else:
         events = Event.objects.none()
         update_campaigns = UpdateCampaign.objects.none()
@@ -80,6 +110,10 @@ def create_event(request):
             event.owner = request.user
             event.is_quick_send = is_quick_send
             event.save()
+            try:
+                store_template_copy(event)
+            except Exception:  # noqa: BLE001 - the design is re-read from disk on first use
+                logger.exception("Could not copy the design image into the database")
             
             # Only parse and import students if NOT in quick-send mode
             if not is_quick_send:
@@ -136,6 +170,20 @@ def position_certificate(request, event_id):
     event = get_object_or_404(Event, id=event_id, owner=request.user)
 
     if request.method == "POST":
+        new_design = request.FILES.get("template_image")
+        if new_design:
+            if new_design.size > 8 * 1024 * 1024:
+                messages.error(request, "That design image is too big. Please keep it under 8 MB.")
+                return redirect("position_certificate", event_id=event.id)
+            try:
+                Image.open(new_design).verify()
+            except Exception:  # noqa: BLE001
+                messages.error(request, "That file isn't a valid image. Please upload a PNG or JPG.")
+                return redirect("position_certificate", event_id=event.id)
+            new_design.seek(0)
+            event.template_image = new_design
+            event.save()
+            store_template_copy(event)
         event.name_x_percent = float(request.POST.get("name_x_percent", 50))
         event.name_y_percent = float(request.POST.get("name_y_percent", 50))
         event.font_size = int(request.POST.get("font_size", 48))
@@ -149,10 +197,15 @@ def position_certificate(request, event_id):
 
     names = list(event.students.values_list("name", flat=True))
     longest = sorted(names, key=len, reverse=True)[:3]
+    try:
+        get_template_bytes(event)
+        template_missing = False
+    except ValueError:
+        template_missing = True
     return render(
         request,
         "certificates/position_certificate.html",
-        {"event": event, "longest_names": longest},
+        {"event": event, "longest_names": longest, "template_missing": template_missing},
     )
 
 
@@ -168,12 +221,15 @@ def student_list(request, event_id):
         if fix:
             typos.append({"id": st.id, "name": st.name, "email": st.email, "fix": fix})
     shrunk = []
-    if event.is_configured:
-        try:
-            width = event.template_image.width
+    template_missing = False
+    try:
+        width = Image.open(BytesIO(get_template_bytes(event))).size[0]
+        if event.is_configured:
             shrunk = name_needs_shrink(event, width, [st.name for st in students.exclude(status="sent")])
-        except Exception:  # noqa: BLE001 - missing/unreadable template image
-            shrunk = []
+    except ValueError:
+        template_missing = True
+    except Exception:  # noqa: BLE001 - unreadable image
+        shrunk = []
     shrunk = sorted(shrunk, key=lambda x: x[1])
     return render(
         request,
@@ -184,6 +240,7 @@ def student_list(request, event_id):
             "pending_to_send": pending_to_send,
             "report": report,
             "typos": typos,
+            "template_missing": template_missing,
             "shrunk_n": len(shrunk),
             "shrunk": [{"name": n, "pct": round(sc * 100)} for n, sc in shrunk[:10]],
         },
@@ -269,32 +326,18 @@ def update_student(request, event_id, student_id):
 
 @login_required
 @require_POST
-def generate_all(request, event_id):
+def send_batch(request, event_id):
+    """Send the next few certificates and report progress. The page calls this
+    again and again until nothing is left, so no single request runs long."""
     event = get_object_or_404(Event, id=event_id, owner=request.user)
-    count = 0
-    for student in event.students.exclude(status="sent"):
-        generate_certificate_pdf(event, student)
-        count += 1
-    messages.success(request, f"Generated {count} certificate(s). Review below, then send.")
-    return redirect("student_list", event_id=event.id)
-
-
-@login_required
-@require_POST
-def send_all(request, event_id):
-    event = get_object_or_404(Event, id=event_id, owner=request.user)
-    sent, failed = 0, 0
-    for student in event.students.exclude(status="sent"):
-        ok, _ = send_certificate_email(event, student, sender=request.user)
-        if ok:
-            sent += 1
-        else:
-            failed += 1
-    if sent:
-        messages.success(request, f"Emailed {sent} certificate(s) successfully.")
-    if failed:
-        messages.error(request, f"{failed} email(s) failed to send. Check the status column below.")
-    return redirect("student_list", event_id=event.id)
+    result = send_certificate_batch(event, request.user, start=request.POST.get("start") == "1")
+    students = event.students
+    result["total"] = students.count()
+    result["sent_total"] = students.filter(status="sent").count()
+    result["failed_total"] = students.filter(status="failed").count()
+    result["used_24h"] = sent_last_24h(request.user)
+    result["daily_limit"] = DAILY_LIMIT
+    return JsonResponse(result)
 
 
 @login_required
@@ -350,3 +393,33 @@ def fix_student_email(request, event_id):
     else:
         messages.info(request, "Nothing to fix.")
     return redirect("student_list", event_id=event.id)
+
+
+@login_required
+def event_template_image(request, event_id):
+    """The design image, served from the database (works after redeploys)."""
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    try:
+        data = get_template_bytes(event)
+    except ValueError:
+        raise Http404("design image missing")
+    response = HttpResponse(data, content_type=event.template_type or "image/png")
+    response["Cache-Control"] = "private, max-age=3600"
+    return response
+
+
+@login_required
+def student_certificate_pdf(request, event_id, student_id):
+    """Preview a person's certificate. It is drawn on the spot, so it always
+    matches the current layout and never depends on stored files."""
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    student = get_object_or_404(Student, id=student_id, event=event)
+    try:
+        pdf = render_certificate_pdf_bytes(event, student.name)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("position_certificate", event_id=event.id)
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = 'inline; filename="certificate.pdf"'
+    response["Cache-Control"] = "private, no-store"
+    return response

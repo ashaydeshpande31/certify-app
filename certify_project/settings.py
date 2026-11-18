@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -21,13 +22,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-)7n*$!xm&4&h+wad#!qwm!h(z_0f(+!_lry$b122@ts789txqp',
-)
+ON_RENDER = bool(os.environ.get('RENDER'))  # Render sets this automatically
+
+_DEV_KEY = 'django-insecure-)7n*$!xm&4&h+wad#!qwm!h(z_0f(+!_lry$b122@ts789txqp'
+SECRET_KEY = os.environ.get('SECRET_KEY', '')
+if not SECRET_KEY:
+    if ON_RENDER and os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET'):
+        # Never run production on the public development key: derive a stable
+        # private one from a secret only this deployment knows.
+        SECRET_KEY = hashlib.sha256(('certify|' + os.environ['GOOGLE_OAUTH_CLIENT_SECRET']).encode()).hexdigest()
+    else:
+        SECRET_KEY = _DEV_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+# On Render debug is OFF unless DEBUG=True is set on purpose.
+DEBUG = os.environ.get('DEBUG', 'False' if ON_RENDER else 'True') == 'True'
 
 # Comma-separated list of hosts, e.g. "yourapp.onrender.com,127.0.0.1"
 # Falls back to '*' locally so it also works on your phone over WiFi.
@@ -67,6 +76,7 @@ SITE_ID = 1
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -144,6 +154,7 @@ DATABASES = {
     'default': dj_database_url.config(
         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
         conn_max_age=600,
+        conn_health_checks=True,  # drop a dead connection instead of failing the request
     )
 }
 
@@ -194,6 +205,9 @@ STORAGES = {
     },
 }
 
+# A page that names a static file missing from the manifest must not crash.
+WHITENOISE_MANIFEST_STRICT = False
+
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -228,3 +242,27 @@ if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
     SITE_URL = f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}"
 else:
     SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
+
+
+# --- Production hardening ------------------------------------------------
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30  # 30 days
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+
+# --- Logging -------------------------------------------------------------
+# By default Django prints nothing to the console when DEBUG is off, so
+# errors were invisible in the Render logs. Send them there.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'plain': {'format': '%(levelname)s %(name)s: %(message)s'}},
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'}},
+    'loggers': {
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        'certificates': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+    },
+}

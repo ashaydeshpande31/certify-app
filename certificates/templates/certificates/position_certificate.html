@@ -7,14 +7,21 @@
   <a href="{% url 'student_list' event.id %}" class="muted">Skip for now →</a>
 </div>
 
-<form method="post" id="position-form">
+{% if template_missing %}
+<div class="form-card list-check is-typo" role="alert" style="margin-bottom:24px; max-width:none;">
+  <div class="lc-title">The certificate design is missing</div>
+  <p class="muted" style="margin:4px 0 0;">The server lost the design image. Choose the image again in the box below and press Save layout.</p>
+</div>
+{% endif %}
+
+<form method="post" id="position-form" enctype="multipart/form-data">
   {% csrf_token %}
   <div class="position-layout">
 
     <div class="canvas-wrap">
       <div class="canvas-hint">Click anywhere on the certificate to set where student names will appear.</div>
       <div id="template-stage">
-        <img src="{{ event.template_image.url }}" id="template-img" alt="Certificate template">
+        <img src="{% url 'event_template_image' event.id %}" id="template-img" alt="Certificate template">
         <div id="name-marker">Ashay Deshpande</div>
       </div>
     </div>
@@ -25,7 +32,7 @@
 
       {% if longest_names %}
       <div class="longname-box">
-        <label style="margin-top:0;">Try a long name</label>
+        <label for="sample_name" style="margin-top:0;">Try a long name</label>
         <select id="sample_name">
           <option value="Ashay Deshpande">Ashay Deshpande (sample)</option>
           {% for n in longest_names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
@@ -34,30 +41,33 @@
       </div>
       {% endif %}
 
-      <label>Font size</label>
+      <label for="template_image">{% if template_missing %}Upload the design again{% else %}Replace design image (optional){% endif %}</label>
+      <input type="file" id="template_image" name="template_image" accept="image/png,image/jpeg">
+
+      <label for="font_size">Font size</label>
       <input type="range" id="font_size" min="18" max="300" value="{{ event.font_size }}" style="width:100%;">
 
-      <label>Font style</label>
+      <label for="font_choice">Font style</label>
       <select id="font_choice" name="font_choice">
         <option value="serif" {% if event.font_choice == "serif" %}selected{% endif %}>Serif — Elegant</option>
         <option value="sans" {% if event.font_choice == "sans" %}selected{% endif %}>Sans — Modern</option>
         <option value="script" {% if event.font_choice == "script" %}selected{% endif %}>Bold Serif — Formal</option>
       </select>
 
-      <label>Color</label>
-      <div class="swatches" id="color-swatches">
-        <div class="swatch active" style="background:#1B2A4A" data-color="#1B2A4A"></div>
-        <div class="swatch" style="background:#0D0D0D" data-color="#0D0D0D"></div>
-        <div class="swatch" style="background:#C9A227" data-color="#C9A227"></div>
-        <div class="swatch" style="background:#7A1F1F" data-color="#7A1F1F"></div>
-        <div class="swatch" style="background:#1F5C3F" data-color="#1F5C3F"></div>
+      <label id="color-label">Color</label>
+      <div class="swatches" id="color-swatches" role="group" aria-labelledby="color-label">
+        <button type="button" class="swatch active" style="background:#1B2A4A" data-color="#1B2A4A" aria-label="Navy" aria-pressed="true"></button>
+        <button type="button" class="swatch" style="background:#0D0D0D" data-color="#0D0D0D" aria-label="Black" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#C9A227" data-color="#C9A227" aria-label="Gold" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#7A1F1F" data-color="#7A1F1F" aria-label="Maroon" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#1F5C3F" data-color="#1F5C3F" aria-label="Green" aria-pressed="false"></button>
       </div>
 
-      <label>Alignment</label>
-      <div class="align-toggle" id="align-toggle">
-        <button type="button" data-align="left">Left</button>
-        <button type="button" data-align="center" class="active">Center</button>
-        <button type="button" data-align="right">Right</button>
+      <label id="align-label">Alignment</label>
+      <div class="align-toggle" id="align-toggle" role="group" aria-labelledby="align-label">
+        <button type="button" data-align="left" aria-pressed="false">Left</button>
+        <button type="button" data-align="center" class="active" aria-pressed="true">Center</button>
+        <button type="button" data-align="right" aria-pressed="false">Right</button>
       </div>
 
       <input type="hidden" name="name_x_percent" id="name_x_percent" value="{{ event.name_x_percent }}">
@@ -170,8 +180,9 @@ marker.style.fontFamily = "'Fraunces', serif";
 
 document.querySelectorAll('.swatch').forEach(function (sw) {
   sw.addEventListener('click', function () {
-    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.swatch').forEach(s => { s.classList.remove('active'); s.setAttribute('aria-pressed', 'false'); });
     this.classList.add('active');
+    this.setAttribute('aria-pressed', 'true');
     marker.style.color = this.dataset.color;
     colorHidden.value = this.dataset.color;
   });
@@ -180,8 +191,9 @@ marker.style.color = colorHidden.value;
 
 document.querySelectorAll('#align-toggle button').forEach(function (btn) {
   btn.addEventListener('click', function () {
-    document.querySelectorAll('#align-toggle button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#align-toggle button').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
     this.classList.add('active');
+    this.setAttribute('aria-pressed', 'true');
     alignHidden.value = this.dataset.align;
     marker.style.textAlign = this.dataset.align;
     updateMarkerFontSize();

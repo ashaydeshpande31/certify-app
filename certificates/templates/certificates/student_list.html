@@ -11,17 +11,20 @@
   </div>
   <div class="toolbar-actions">
     <button type="button" class="btn btn-ghost" data-check-kind="certificate" data-check-id="{{ event.id }}" data-check-title="{{ event.name }}">Check who got it</button>
-    <form method="post" action="{% url 'generate_all' event.id %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-ghost">Generate all PDFs</button>
-    </form>
-    <form method="post" action="{% url 'send_all' event.id %}" data-pending="{{ pending_to_send }}" onsubmit="return window.certifyGate(this);">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-primary">Generate &amp; send all →</button>
-    </form>
+    <button type="button" class="btn btn-primary" id="send-all" data-url="{% url 'send_batch' event.id %}" data-pending="{{ pending_to_send }}" {% if not pending_to_send %}disabled{% endif %}>
+      {% if pending_to_send %}Send certificates to {{ pending_to_send }} →{% else %}Everyone has their certificate{% endif %}
+    </button>
   </div>
 </div>
 
+
+{% if template_missing %}
+<div class="form-card list-check is-typo" role="alert" style="margin-bottom:24px; max-width:none;">
+  <div class="lc-title">The certificate design is missing</div>
+  <p class="muted" style="margin:4px 0 12px;">The server lost the design image for this event. Upload it again to send certificates.</p>
+  <a class="btn btn-primary" href="{% url 'position_certificate' event.id %}">Upload the design again</a>
+</div>
+{% endif %}
 
 {% if report %}
 <div class="form-card list-check" style="margin-bottom:24px; max-width:none;">
@@ -97,7 +100,7 @@
 {% if event.is_quick_send %}
 <form method="post" action="{% url 'add_quick_send_student' event.id %}" class="form-card" style="margin-bottom:24px;">
   {% csrf_token %}
-  <label>Add a participant</label>
+  <p class="form-label" style="margin:0 0 8px;font-weight:600;">Add a participant</p>
   <div style="display: flex; gap: 12px; align-items: flex-end;">
     <div style="flex: 1;">
       <label for="quick-name" style="display: block; font-size: 0.9rem; margin-bottom: 4px;">Name</label>
@@ -116,12 +119,12 @@
   <table class="tbl-students">
     <thead>
       <tr>
-        <th>#</th>
-        <th>Student</th>
-        <th>Email</th>
-        <th>Status</th>
-        <th>Certificate</th>
-        <th></th>
+        <th scope="col">#</th>
+        <th scope="col">Student</th>
+        <th scope="col">Email</th>
+        <th scope="col">Status</th>
+        <th scope="col">Certificate</th>
+        <th scope="col"></th>
       </tr>
     </thead>
     <tbody>
@@ -142,11 +145,7 @@
           {% endif %}
         </td>
         <td>
-          {% if student.certificate_file %}
-            <a href="{{ student.certificate_file.url }}" target="_blank" style="color:var(--gold-300);">View PDF</a>
-          {% else %}
-            <span class="muted">—</span>
-          {% endif %}
+          <a href="{% url 'student_certificate_pdf' event.id student.id %}" target="_blank" rel="noopener" style="color:var(--gold-300);" aria-label="Preview certificate PDF for {{ student.name }}">Preview PDF</a>
         </td>
         <td style="text-align:right; white-space:nowrap;">
           <button type="button" class="btn btn-sm btn-ghost" onclick="toggleEditRow({{ student.id }})">Edit</button>
@@ -190,14 +189,88 @@ function toggleEditRow(studentId) {
 }
 </script>
 
+<div class="cs-backdrop" id="cp-backdrop" hidden>
+  <div class="cs-modal" role="dialog" aria-modal="true" aria-labelledby="cp-title">
+    <h2 id="cp-title">Sending certificates</h2>
+    <p class="cs-count" id="cp-line" aria-live="polite">Starting…</p>
+    <div class="qp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="cp-bar"><span id="cp-fill"></span></div>
+    <p class="cs-msg" id="cp-note">Keep this page open until it finishes.</p>
+    <div class="cs-actions">
+      <button type="button" class="btn btn-primary" id="cp-close" hidden>Close</button>
+    </div>
+  </div>
+</div>
 <script>
-function certifyGate(form) {
-  if (form.dataset.ok) return true;
-  window.certifyConfirmSend(parseInt(form.dataset.pending, 10) || 0, 'certificates').then(function (ok) {
-    if (ok) { form.dataset.ok = '1'; form.submit(); }
+(function () {
+  const btn = document.getElementById('send-all');
+  if (!btn) return;
+  const url = btn.dataset.url;
+  const bd = document.getElementById('cp-backdrop');
+  const line = document.getElementById('cp-line');
+  const note = document.getElementById('cp-note');
+  const fill = document.getElementById('cp-fill');
+  const bar = document.getElementById('cp-bar');
+  const title = document.getElementById('cp-title');
+  const closeBtn = document.getElementById('cp-close');
+  const csrf = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+
+  function setBar(done, total) {
+    const pct = total ? Math.min(100, Math.round(done * 100 / total)) : 100;
+    fill.style.width = pct + '%';
+    bar.setAttribute('aria-valuenow', pct);
+  }
+  async function post(start) {
+    const body = new URLSearchParams();
+    if (start) body.set('start', '1');
+    const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body });
+    if (!r.ok) throw new Error('The server answered with status ' + r.status);
+    return r.json();
+  }
+  async function postWithRetry(start) {
+    let last;
+    for (let i = 0; i < 3; i++) {
+      try { return await post(start); } catch (e) { last = e; await new Promise(function (res) { setTimeout(res, 4000); }); }
+    }
+    throw last;
+  }
+  function finish(t, l, n) {
+    title.textContent = t; line.textContent = l; note.textContent = n;
+    closeBtn.hidden = false; closeBtn.focus();
+  }
+  closeBtn.addEventListener('click', function () { window.location.reload(); });
+
+  async function run() {
+    btn.disabled = true;
+    bd.hidden = false; document.body.style.overflow = 'hidden';
+    closeBtn.hidden = true; title.textContent = 'Sending certificates';
+    let first = true;
+    try {
+      while (true) {
+        const d = await postWithRetry(first);
+        first = false;
+        setBar(d.sent_total + d.failed_total, d.total);
+        line.textContent = 'Sent ' + d.sent_total + ' of ' + d.total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : '');
+        note.textContent = 'Keep this page open until it finishes. Gmail usage in the last 24 hours: ' + d.used_24h + ' of about ' + d.daily_limit + '.';
+        document.dispatchEvent(new CustomEvent('quota:update', { detail: { used: d.used_24h, limit: d.daily_limit } }));
+        if (d.stop) { finish('Sending paused', 'Sent ' + d.sent_total + ' of ' + d.total, d.error); return; }
+        if (!d.remaining) break;
+        if (d.sent === 0 && d.failed === 0) {
+          finish('Another send is running', 'Sent ' + d.sent_total + ' of ' + d.total, 'Reloading in a moment to show the latest status.');
+          setTimeout(function () { window.location.reload(); }, 4000);
+          return;
+        }
+      }
+      finish('Certificates sent', 'Everyone on your list has their certificate.', 'Failed rows show in red in the table. Fix the address and press send again.');
+    } catch (err) {
+      finish('Sending stopped', err.message, 'Check your connection and press send again. People already sent are skipped.');
+    }
+  }
+  btn.addEventListener('click', async function () {
+    const n = parseInt(btn.dataset.pending, 10) || 0;
+    if (!n) return;
+    const ok = await window.certifyConfirmSend(n, 'certificates');
+    if (ok) run();
   });
-  return false;
-}
-window.certifyGate = certifyGate;
+})();
 </script>
 {% endblock %}

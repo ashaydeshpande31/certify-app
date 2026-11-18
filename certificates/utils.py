@@ -14,7 +14,12 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 from PIL import Image, ImageDraw, ImageFont
 
+import time
+from email.header import Header
+from django.utils import timezone
+
 from .models import Student
+from . import update_utils as _uu
 
 FONT_PATHS = {
     "serif": {
@@ -244,12 +249,39 @@ def name_needs_shrink(event, image_width, names):
     return out
 
 
+def store_template_copy(event):
+    """Keep a copy of the uploaded design in the database (the disk copy is
+    lost whenever Render redeploys)."""
+    event.template_image.open("rb")
+    try:
+        data = event.template_image.read()
+    finally:
+        event.template_image.close()
+    img = Image.open(BytesIO(data))
+    event.template_data = data
+    event.template_type = Image.MIME.get(img.format, "image/png")
+    event.save(update_fields=["template_data", "template_type"])
+
+
+def get_template_bytes(event):
+    """The design image bytes: from the database copy, else (older events)
+    from the file on disk, which is then copied into the database."""
+    if event.template_data:
+        return bytes(event.template_data)
+    try:
+        store_template_copy(event)
+        return bytes(event.template_data)
+    except (FileNotFoundError, ValueError, OSError):
+        raise ValueError(
+            "The certificate design image for this event is missing (the server lost the file). "
+            "Open the layout page and upload the design again."
+        )
+
+
 def render_certificate_image(event, student_name):
     """Return a PIL Image with the student's name drawn onto the event template.
     Long names shrink so they stay inside the certificate."""
-    event.template_image.open("rb")
-    base = Image.open(event.template_image).convert("RGB")
-    event.template_image.close()
+    base = Image.open(BytesIO(get_template_bytes(event))).convert("RGB")
 
     draw = ImageDraw.Draw(base)
     w, h = base.size
@@ -266,19 +298,12 @@ def render_certificate_image(event, student_name):
     return base
 
 
-def generate_certificate_pdf(event, student):
-    """Render the certificate for a student and save it as a PDF on the Student."""
-    img = render_certificate_image(event, student.name)
-
+def render_certificate_pdf_bytes(event, student_name):
+    """The certificate as PDF bytes, made on the spot (nothing stored on disk)."""
+    img = render_certificate_image(event, student_name)
     buffer = BytesIO()
     img.save(buffer, format="PDF")
-    buffer.seek(0)
-
-    filename = f"certificate_{student.cert_id}.pdf"
-    student.certificate_file.save(filename, ContentFile(buffer.read()), save=False)
-    student.status = "generated"
-    student.save()
-    return student.certificate_file
+    return buffer.getvalue()
 
 
 def _build_email_body(event, student, verify_url=None, subject=None):
@@ -353,50 +378,50 @@ def _get_gmail_service(user):
         return None
 
 
+def _safe_filename(name):
+    """A filename that is safe in a mail header (no newlines or slashes)."""
+    cleaned = re.sub(r"[\r\n\\/:*?\"<>|]+", " ", name or "").strip()
+    cleaned = re.sub(r"\s+", "_", cleaned) or "certificate"
+    return cleaned[:80]
+
+
 def _send_via_gmail_api(service, student, subject, body, attachment_bytes, attachment_name):
     message = MIMEMultipart()
     message["to"] = student.email
-    message["subject"] = subject
-    message.attach(MIMEText(body, "plain"))
+    message["subject"] = Header(subject, "utf-8")
+    message.attach(MIMEText(body, "plain", "utf-8"))
 
     part = MIMEBase("application", "pdf")
     part.set_payload(attachment_bytes)
     encoders.encode_base64(part)
-    part.add_header("Content-Disposition", f"attachment; filename={attachment_name}")
+    # RFC 2231 form so names in Marathi / Hindi / any script survive
+    part.add_header("Content-Disposition", "attachment", filename=("utf-8", "", attachment_name))
     message.attach(part)
 
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
 
-def send_certificate_email(event, student, sender=None):
-    """Email the generated certificate PDF to the student.
+def send_certificate_email(event, student, sender=None, service=None):
+    """Email the certificate PDF to the student.
 
-    If `sender` is a logged-in user who has signed in with Google (and
-    granted the "send email as you" permission), the certificate is sent
-    from that user's own Gmail account via the Gmail API. Otherwise it
-    falls back to the shared SMTP account configured via
-    EMAIL_HOST_USER / EMAIL_HOST_PASSWORD (or the console backend).
+    The PDF is rendered in memory. If `service` (a Gmail API client) is given
+    it is used as is; otherwise one is built for `sender` (a user who signed
+    in with Google and allowed "send email as you"). With no Gmail access it
+    falls back to the shared SMTP account.
 
     Returns (ok, error_message).
     """
-    generate_certificate_pdf(event, student)
-
-    verify_url = f"{settings.SITE_URL}/verify/{student.cert_id}/"
-    subject = f"Your Certificate - {event.name}"
-    body = _build_email_body(event, student, verify_url, subject=subject)
-    attachment_name = f"{student.name.replace(' ', '_')}_certificate.pdf"
-
-    student.certificate_file.open("rb")
-    attachment_bytes = student.certificate_file.read()
-    student.certificate_file.close()
-
-    gmail_service = _get_gmail_service(sender)
+    subject = _uu.clean_subject(f"Your Certificate - {event.name}")
+    body = _build_email_body(event, student, None, subject=subject)
+    attachment_name = _safe_filename(student.name) + "_certificate.pdf"
 
     try:
+        attachment_bytes = render_certificate_pdf_bytes(event, student.name)
+        gmail_service = service if service is not None else _get_gmail_service(sender)
         if gmail_service is not None:
             _send_via_gmail_api(gmail_service, student, subject, body, attachment_bytes, attachment_name)
-        else:
+        elif _uu._smtp_configured():
             email = EmailMessage(
                 subject=subject,
                 body=body,
@@ -405,6 +430,8 @@ def send_certificate_email(event, student, sender=None):
             )
             email.attach(attachment_name, attachment_bytes, "application/pdf")
             email.send(fail_silently=False)
+        else:
+            raise RuntimeError(_uu.AUTH_MESSAGE)
 
         student.status = "sent"
         student.error_message = ""
@@ -415,3 +442,54 @@ def send_certificate_email(event, student, sender=None):
         student.error_message = str(exc)[:300]
         student.save()
         return False, str(exc)
+
+
+def send_certificate_batch(event, sender, batch_size=_uu.BATCH_SIZE, budget=_uu.TIME_BUDGET_SECONDS, start=False):
+    """Send certificates to up to `batch_size` people, then return so the page
+    can ask for the next batch (keeps every request short, so no 502).
+
+    `start=True` first puts earlier failures back in the queue.
+    Returns: sent, failed, remaining, stop, error.
+    """
+    started = time.monotonic()
+    students = event.students
+
+    # put back anyone whose earlier request was killed mid-send
+    students.filter(status="sending", updated_at__lt=timezone.now() - _uu.STUCK_AFTER).update(status="pending")
+    if start:
+        students.filter(status__in=["failed", "sending"]).update(status="pending", error_message="")
+
+    def remaining():
+        return students.filter(status__in=["pending", "generated", "sending"]).count()
+
+    service = _get_gmail_service(sender)
+    if service is None and not _uu._smtp_configured():
+        return {"sent": 0, "failed": 0, "remaining": remaining(), "stop": True, "error": _uu.AUTH_MESSAGE}
+
+    sent = failed = 0
+    stop = False
+    last_error = ""
+    ids = list(students.filter(status__in=["pending", "generated"]).values_list("id", flat=True)[:batch_size])
+    for sid in ids:
+        if time.monotonic() - started > budget:
+            break
+        # claim first so two tabs can never mail the same person twice
+        if not students.filter(id=sid, status__in=["pending", "generated"]).update(status="sending"):
+            continue
+        student = students.get(id=sid)
+        ok, err = send_certificate_email(event, student, service=service)
+        if ok:
+            sent += 1
+            continue
+        last_error = err
+        if _uu.is_quota_error(err):
+            students.filter(id=sid).update(status="pending", error_message="")
+            last_error, stop = _uu.QUOTA_MESSAGE, True
+            break
+        if _uu.is_auth_error(err):
+            students.filter(id=sid).update(status="pending", error_message="")
+            last_error, stop = _uu.AUTH_MESSAGE, True
+            break
+        failed += 1
+
+    return {"sent": sent, "failed": failed, "remaining": remaining(), "stop": stop, "error": last_error}

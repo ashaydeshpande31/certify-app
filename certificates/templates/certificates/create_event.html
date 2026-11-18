@@ -1,5 +1,6 @@
 {% extends "certificates/base.html" %}
 {% block title %}New Event{% endblock %}
+{% block description %}Create an event, upload your certificate design and your participant list.{% endblock %}
 {% block content %}
 
 <div class="section-head">
@@ -19,15 +20,16 @@
   <label for="id_organizer">Organizer <span class="muted">(optional)</span></label>
   {{ form.organizer }}
 
-  <label>Certificate template</label>
+  <label for="id_template_image">Certificate template</label>
   <div class="file-drop">
     {{ form.template_image }}
     <div class="file-drop-label">Drop your certificate design here, or click to browse</div>
     <div class="file-drop-sub">PNG or JPG — the blank certificate, without any names on it</div>
   </div>
 
-  <label>How do you want to add participants?</label>
-  <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+  <fieldset>
+  <legend class="field-legend">How do you want to add participants?</legend>
+  <div style="display: flex; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 20px;">
     <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
       <input type="radio" name="participant-mode" value="upload" checked style="margin-right: 8px;">
       <span>Upload a file (Excel, CSV, or PDF)</span>
@@ -37,9 +39,10 @@
       <span>Quick send (type name & email)</span>
     </label>
   </div>
+  </fieldset>
 
   <div id="upload-mode">
-    <label>Participant list</label>
+    <label for="id_excel_file">Participant list</label>
     <div class="file-drop">
       {{ form.excel_file }}
       <div class="file-drop-label">Drop your participant list here, or click to browse</div>
@@ -48,7 +51,7 @@
     {% if form.excel_file.errors %}
       <div class="field-error">{{ form.excel_file.errors }}</div>
     {% endif %}
-    <div id="excel-file-error" class="field-error" style="display:none;"></div>
+    <div id="excel-file-error" class="field-error" role="alert" style="display:none;"></div>
     <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here. A PDF works too, but only if it's exported directly from a spreadsheet or form — not a photo or scan of a printed page.</div>
   </div>
 

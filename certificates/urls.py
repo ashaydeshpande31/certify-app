@@ -4,6 +4,7 @@ from . import views, update_views
 urlpatterns = [
     path("", views.home, name="home"),
     path("privacy/", views.privacy_policy, name="privacy_policy"),
+    path("robots.txt", views.robots_txt, name="robots_txt"),
     path("terms/", views.terms_of_service, name="terms_of_service"),
     path("create/", views.create_event, name="create_event"),
     path("event/<int:event_id>/position/", views.position_certificate, name="position_certificate"),
@@ -13,8 +14,9 @@ urlpatterns = [
     path("event/<int:event_id>/students/quick-add/", views.add_quick_send_student, name="add_quick_send_student"),
     path("event/<int:event_id>/students/<int:student_id>/edit/", views.update_student, name="update_student"),
     path("event/<int:event_id>/fix-email/", views.fix_student_email, name="fix_student_email"),
-    path("event/<int:event_id>/generate/", views.generate_all, name="generate_all"),
-    path("event/<int:event_id>/send/", views.send_all, name="send_all"),
+    path("event/<int:event_id>/design/", views.event_template_image, name="event_template_image"),
+    path("event/<int:event_id>/send-batch/", views.send_batch, name="send_batch"),
+    path("event/<int:event_id>/students/<int:student_id>/certificate.pdf", views.student_certificate_pdf, name="student_certificate_pdf"),
     path("event/<int:event_id>/send/<int:student_id>/", views.send_one, name="send_one"),
     path("verify/<uuid:cert_id>/", views.verify_certificate, name="verify_certificate"),
 

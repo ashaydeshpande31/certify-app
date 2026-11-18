@@ -3,7 +3,7 @@ services:
     name: certify
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn certify_project.wsgi:application --timeout 120"
+    startCommand: "gunicorn certify_project.wsgi:application"
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0

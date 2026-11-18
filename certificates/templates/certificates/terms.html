@@ -1,0 +1,31 @@
+{% extends "certificates/base.html" %}
+{% block title %}Terms of Service{% endblock %}
+{% block description %}The simple rules for using Certify to send certificates and event updates.{% endblock %}
+{% block content %}
+<div class="form-card" style="max-width:780px;">
+  <h1 style="margin-top:0;font-size:1.6rem;">Terms of Service</h1>
+  <p class="muted">Last updated: {{ last_updated }}</p>
+
+  <p>Certify helps event organisers send certificates and updates to their participants from their own Gmail account. By signing in you agree to these terms.</p>
+
+  <h2>Who can use it</h2>
+  <p>Certify is for organisers who have the right to contact the people on their lists, such as people who registered for or attended their event.</p>
+
+  <h2>What you agree to</h2>
+  <ul>
+    <li>Send only to people you have a genuine reason to contact. No spam, no advertising to strangers.</li>
+    <li>Do not send anything unlawful, misleading, abusive or harmful.</li>
+    <li>Follow Gmail's own sending limits and Google's terms. Emails go out from your account, so you are responsible for them.</li>
+    <li>Only upload designs and lists that you are allowed to use.</li>
+  </ul>
+
+  <h2>Limits and availability</h2>
+  <p>Certify is a free service run by a student. It may be slow, paused or changed without notice, and it comes with no guarantee. Gmail decides how many emails you can send each day. Keep your own copy of anything important.</p>
+
+  <h2>Your data</h2>
+  <p>How we handle your information is described in the <a href="{% url 'privacy_policy' %}">Privacy Policy</a>.</p>
+
+  <h2>Ending your use</h2>
+  <p>You can stop at any time and remove Certify's access in your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google account permissions</a>. We may suspend accounts that break these terms.</p>
+</div>
+{% endblock %}
