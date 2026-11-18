@@ -2,29 +2,76 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 
-{% if user.is_authenticated %}
+<section class="hero">
+  <div>
+    <h1>Send certificates and event updates from your own Gmail.</h1>
+    <p>Upload your participant list once. Certify puts each name on your certificate and emails it, or mails one message to everyone, with a poster if you want.</p>
+    <div class="hero-actions">
+      {% if user.is_authenticated %}
+        <a href="{% url 'create_event' %}" class="btn btn-primary">Send certificates</a>
+        <a href="{% url 'update_create' %}" class="btn btn-ghost">Send updates</a>
+      {% else %}
+        <a href="/accounts/google/login/?process=login" class="btn btn-primary">Sign in with Google</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="mock-cert">
+      <div class="mock-cert-eyebrow">Certificate of participation</div>
+      <h2>HackNova 2026</h2>
+      <span class="cert-name">Ashay Deshpande</span>
+      <div class="cert-sub">took part in the 24-hour hackathon</div>
+      <div class="mock-cert-seal">✓</div>
+    </div>
+    <div class="art-mail"><span></span></div>
+  </div>
+</section>
 
 <div class="section-head">
-  <h2>What do you want to send?</h2>
+  <h2>Send certificates</h2>
+  <span class="muted">Every person gets their own PDF</span>
 </div>
-<div class="choice-grid">
-  <a href="{% url 'create_event' %}" class="choice-card">
-    <div class="tile-art" aria-hidden="true">
-      <div class="art-cert"><i class="t"></i><i class="n"></i><i class="s"></i></div>
-    </div>
-    <h3>Certificates</h3>
-    <p>Put every name on your certificate design and email each person their own PDF.</p>
-    <span class="btn btn-primary btn-sm">Create an event</span>
-  </a>
-  <a href="{% url 'update_create' %}" class="choice-card">
-    <div class="tile-art" aria-hidden="true">
-      <div class="art-mail"><span></span></div>
-    </div>
-    <h3>Updates</h3>
-    <p>Write one message and mail it to everyone on your list. Add a poster or photos if you like.</p>
-    <span class="btn btn-primary btn-sm">Write an update</span>
-  </a>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <h3>Upload your list and design</h3>
+    <p>Add a sheet with names and emails (from your Google Form), plus your certificate design as an image.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <h3>Place the name</h3>
+    <p>Click once on your design to mark where names go. Pick a font, size and color and see it live.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <h3>Generate and send</h3>
+    <p>Each person's certificate is emailed to their Gmail, ready to download and post on LinkedIn.</p>
+  </div>
 </div>
+
+<div class="section-head">
+  <h2>Send updates</h2>
+  <span class="muted">One message to your whole list</span>
+</div>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <h3>Write your message</h3>
+    <p>Add a subject and type the mail. Everyone receives it exactly as you wrote it.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <h3>Add your list</h3>
+    <p>Upload a file with emails in any column, or type them in. Add a poster or photos if you want, or skip them.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <h3>Send</h3>
+    <p>Watch the progress as it goes out from your own Gmail. If it pauses, press send again to continue.</p>
+  </div>
+</div>
+
+{% if user.is_authenticated %}
 
 <div class="section-head">
   <h2>Your events</h2>
@@ -99,42 +146,6 @@
 {% endif %}
 
 {% else %}
-
-<section class="hero">
-  <div>
-    <h1>Send certificates and event updates from your own Gmail.</h1>
-    <p>Upload your participant list once. Certify puts each name on your certificate and emails it, or mails one message to everyone, with a poster if you want.</p>
-    <a href="/accounts/google/login/?process=login" class="btn btn-primary">Sign in with Google</a>
-  </div>
-  <div class="hero-art" aria-hidden="true">
-    <div class="mock-cert">
-      <div class="mock-cert-eyebrow">Certificate of participation</div>
-      <h2>HackNova 2026</h2>
-      <span class="cert-name">Ashay Deshpande</span>
-      <div class="cert-sub">took part in the 24-hour hackathon</div>
-      <div class="mock-cert-seal">✓</div>
-    </div>
-    <div class="art-mail"><span></span></div>
-  </div>
-</section>
-
-<div class="steps">
-  <div class="step">
-    <div class="step-num">1</div>
-    <h3>Upload your list and design</h3>
-    <p>Add a sheet with names and emails, plus your certificate design as an image.</p>
-  </div>
-  <div class="step">
-    <div class="step-num">2</div>
-    <h3>Place the name</h3>
-    <p>Click once on your design to mark where names go. Pick a font, size and color and see it live.</p>
-  </div>
-  <div class="step">
-    <div class="step-num">3</div>
-    <h3>Send</h3>
-    <p>Every person gets their own PDF in their inbox. For announcements, skip the design and send one message to the whole list.</p>
-  </div>
-</div>
 
 <div class="empty-state">
   <p>Sign in with Google to create events and send from your own Gmail account.</p>

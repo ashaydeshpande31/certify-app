@@ -261,6 +261,7 @@ h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; }
 }
 .hero p { color: var(--text-mid); font-size: 1.08rem; max-width: 46ch; margin: 0 0 28px; }
 
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .hero-art { position: relative; }
 
 /* sample certificate */
