@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a1020">
 <title>{% block title %}Certify{% endblock %} — Certify</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='18' fill='%23C8A24A'/%3E%3Cpath d='M12 20.5l5.5 5.5 10-11' fill='none' stroke='%232A1E05' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="{% static 'certificates/img/certify-mark.svg' %}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Serif:ital@0;1&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,26 +20,8 @@
 
 <header class="topbar">
   <a href="{% url 'home' %}" class="brand" aria-label="Certify home">
-    <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
-      <defs>
-        <radialGradient id="cs-brass" cx=".35" cy=".3" r=".8">
-          <stop offset="0" stop-color="#F0D48A"/>
-          <stop offset="1" stop-color="#B38A2E"/>
-        </radialGradient>
-      </defs>
-      <g fill="url(#cs-brass)">
-        <circle cx="34.5" cy="20" r="4.2"/><circle cx="32.56" cy="27.25" r="4.2"/>
-        <circle cx="27.25" cy="32.56" r="4.2"/><circle cx="20" cy="34.5" r="4.2"/>
-        <circle cx="12.75" cy="32.56" r="4.2"/><circle cx="7.44" cy="27.25" r="4.2"/>
-        <circle cx="5.5" cy="20" r="4.2"/><circle cx="7.44" cy="12.75" r="4.2"/>
-        <circle cx="12.75" cy="7.44" r="4.2"/><circle cx="20" cy="5.5" r="4.2"/>
-        <circle cx="27.25" cy="7.44" r="4.2"/><circle cx="32.56" cy="12.75" r="4.2"/>
-        <circle cx="20" cy="20" r="14.5"/>
-      </g>
-      <circle cx="20" cy="20" r="11.2" fill="none" stroke="#7A5C14" stroke-opacity=".5" stroke-width="1"/>
-      <path d="M13.5 20.5l4.6 4.7 8.6-9.6" fill="none" stroke="#2A1E05" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span class="brand-text">Certify</span>
+    <img class="brand-logo logo-dark" src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="Certify" width="212" height="60">
+    <img class="brand-logo logo-light" src="{% static 'certificates/img/certify-logo.svg' %}" alt="Certify" width="212" height="60">
   </a>
   <nav class="topnav">
     {% if user.is_authenticated %}

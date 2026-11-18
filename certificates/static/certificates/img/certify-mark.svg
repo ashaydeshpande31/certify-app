@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 256 222" width="256" height="222">
+  <defs>
+    <radialGradient id="brass" cx=".33" cy=".28" r=".85">
+      <stop offset="0" stop-color="#FBE9A9"/><stop offset=".55" stop-color="#D2A945"/><stop offset="1" stop-color="#9C7420"/>
+    </radialGradient>
+    <linearGradient id="tailR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F26468"/><stop offset="1" stop-color="#C93A40"/></linearGradient>
+    <linearGradient id="tailB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5B97F0"/><stop offset="1" stop-color="#2F62BC"/></linearGradient>
+  </defs>
+  <!-- ribbon tails -->
+  <path d="M58 136 L92 150 L85 207 L72 194 L56 205 Z" fill="url(#tailR)"/>
+  <path d="M122 136 L88 150 L95 207 L108 194 L124 205 Z" fill="url(#tailB)"/>
+  <path d="M72 194 L56 205 L58 136 L64 139 Z" fill="#000" opacity=".12"/>
+  <!-- rosette -->
+  <g fill="url(#brass)"><circle cx="90.00" cy="41.00" r="11"/><circle cx="113.34" cy="45.64" r="11"/><circle cx="133.13" cy="58.87" r="11"/><circle cx="146.36" cy="78.66" r="11"/><circle cx="151.00" cy="102.00" r="11"/><circle cx="146.36" cy="125.34" r="11"/><circle cx="133.13" cy="145.13" r="11"/><circle cx="113.34" cy="158.36" r="11"/><circle cx="90.00" cy="163.00" r="11"/><circle cx="66.66" cy="158.36" r="11"/><circle cx="46.87" cy="145.13" r="11"/><circle cx="33.64" cy="125.34" r="11"/><circle cx="29.00" cy="102.00" r="11"/><circle cx="33.64" cy="78.66" r="11"/><circle cx="46.87" cy="58.87" r="11"/><circle cx="66.66" cy="45.64" r="11"/><circle cx="90" cy="102" r="62"/></g>
+  <circle cx="90" cy="102" r="52" fill="none" stroke="#7A5C14" stroke-opacity=".55" stroke-width="2"/>
+  <circle cx="90" cy="102" r="46" fill="none" stroke="#FFF6D2" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="1.5 5" stroke-linecap="round"/>
+  <path d="M42 70 A58 58 0 0 1 100 44" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>
+  <!-- check -->
+  <path d="M60 104 L81 125 L119 78" fill="none" stroke="#2A1E05" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- trail + plane -->
+  <path d="M121 76 C131 66 134 60 143 55" fill="none" stroke="#E5484D" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 8"/>
+  <g transform="translate(142 58) rotate(-14) scale(1.32)" stroke="#101A2F" stroke-width="2.9" stroke-linejoin="round">
+    <path d="M0 10 L62 -16 L26 12 Z" fill="#FFFFFF"/>
+    <path d="M26 12 L62 -16 L33 28 Z" fill="#C6D2F7"/>
+    <path d="M26 12 L33 28 L21 19 Z" fill="#8EA2E6"/>
+  </g>
+  <!-- sparkles -->
+  <g fill="#E9B93E">
+    <path d="M168 6 l3 9 9 3 -9 3 -3 9 -3 -9 -9 -3 9 -3z"/>
+    <path d="M20 30 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2z"/>
+    <path d="M200 96 l1.6 4.6 4.6 1.6 -4.6 1.6 -1.6 4.6 -1.6 -4.6 -4.6 -1.6 4.6 -1.6z"/>
+  </g></svg>
