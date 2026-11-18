@@ -281,8 +281,14 @@ def generate_certificate_pdf(event, student):
     return student.certificate_file
 
 
-def _build_email_body(event, student, verify_url):
-    lines = [
+def _build_email_body(event, student, verify_url=None, subject=None):
+    """Certificate email text. The body starts with a "Subject:" line so the
+    reader sees it in the message too. (verify_url is kept only so older calls
+    still work; the verify link is no longer put in the email.)"""
+    lines = []
+    if subject:
+        lines += [f"Subject: {subject}", ""]
+    lines += [
         f"Hi {student.name},",
         "",
         f'Congratulations! Please find attached your certificate for "{event.name}".',
@@ -291,8 +297,6 @@ def _build_email_body(event, student, verify_url):
     if event.message:
         lines += ["", event.message.strip()]
     lines += [
-        "",
-        f"You can verify this certificate anytime at:\n{verify_url}",
         "",
         "Best regards,",
         f"{event.organizer or 'The Organizing Team'}",
@@ -380,7 +384,7 @@ def send_certificate_email(event, student, sender=None):
 
     verify_url = f"{settings.SITE_URL}/verify/{student.cert_id}/"
     subject = f"Your Certificate - {event.name}"
-    body = _build_email_body(event, student, verify_url)
+    body = _build_email_body(event, student, verify_url, subject=subject)
     attachment_name = f"{student.name.replace(' ', '_')}_certificate.pdf"
 
     student.certificate_file.open("rb")

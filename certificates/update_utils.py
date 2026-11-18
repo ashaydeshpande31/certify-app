@@ -57,13 +57,16 @@ _QUOTA_HINTS = ("ratelimit", "quota", "daily", "user-rate", "too many")
 
 
 def build_update_body(campaign, recipient):
-    """The mail body is the organiser's message exactly as typed. The only
-    thing touched is the optional {name} placeholder, if they typed one."""
+    """A "Subject: ..." line, a blank line, then the organiser's message exactly
+    as typed. The only thing changed in the message is the optional {name}
+    placeholder, if they typed one."""
     name = (recipient.name or "").strip()
     # older rows saved the raw start of the email as the name: guess a real one
     if not name or name.lower() == recipient.email.split("@")[0].lower():
         name = guess_name_from_email(recipient.email)
-    return campaign.message.replace("{name}", name or "there")
+    message = campaign.message.replace("{name}", name or "there")
+    # The mail starts with a "Subject:" line, then the message exactly as typed.
+    return f"Subject: {clean_subject(campaign.subject)}\n\n{message}"
 
 
 def clean_subject(subject):
