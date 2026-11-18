@@ -91,6 +91,11 @@ class UpdateCampaign(models.Model):
     subject = models.CharField(max_length=200)
     message = models.TextField(help_text="Sent to every recipient exactly as written.")
     created_at = models.DateTimeField(auto_now_add=True)
+    auto_continue = models.BooleanField(
+        default=False,
+        help_text="Keep sending the pending people automatically when the daily Gmail limit allows.",
+    )
+    auto_status = models.CharField(max_length=200, blank=True, default="")
 
     def __str__(self):
         return self.subject

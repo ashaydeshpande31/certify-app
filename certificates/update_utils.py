@@ -4,6 +4,7 @@ is not touched by anything here."""
 
 import base64
 import mimetypes
+import os
 import time
 from datetime import timedelta
 from email.header import Header
@@ -16,11 +17,25 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 from django.utils import timezone
 
+from .models import Student, UpdateRecipient
 from .utils import _get_gmail_service
 
 # How many mails one browser request sends. Small on purpose: Render's
 # gunicorn kills a request after ~30 s, and each Gmail send takes ~0.5-1 s.
 BATCH_SIZE = 6
+
+def _int_env(name, default):
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+# Gmail allows about 500 emails per rolling 24 hours for a normal account
+# (about 2,000 for Google Workspace). Set DAILY_SEND_LIMIT in Render to change.
+DAILY_LIMIT = _int_env("DAILY_SEND_LIMIT", 500)
+# Auto-continue stops this many short of the limit so the organiser's own
+# mail keeps working.
+AUTO_RESERVE = _int_env("AUTO_CONTINUE_RESERVE", 50)
 # Stop starting new sends after this many seconds so the request always
 # finishes well inside Render's timeout, even with big attachments.
 TIME_BUDGET_SECONDS = 15
@@ -115,7 +130,17 @@ def is_quota_error(message):
     return any(hint in text for hint in _QUOTA_HINTS)
 
 
-def send_update_batch(campaign, sender, batch_size=BATCH_SIZE):
+def sent_last_24h(user):
+    """How many emails this user's account has sent in the last 24 hours
+    (update mails and certificate mails together — Gmail counts both)."""
+    since = timezone.now() - timedelta(hours=24)
+    return (
+        UpdateRecipient.objects.filter(campaign__owner=user, status="sent", updated_at__gte=since).count()
+        + Student.objects.filter(event__owner=user, status="sent", updated_at__gte=since).count()
+    )
+
+
+def send_update_batch(campaign, sender, batch_size=BATCH_SIZE, budget=TIME_BUDGET_SECONDS):
     """Send the update to up to `batch_size` pending recipients.
 
     Returns a dict: sent, failed (this batch), remaining (still pending
@@ -153,7 +178,7 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE):
         campaign.recipients.filter(status="pending").values_list("id", flat=True)[:batch_size]
     )
     for rid in ids:
-        if time.monotonic() - started > TIME_BUDGET_SECONDS:
+        if time.monotonic() - started > budget:
             break  # the page will simply ask for the next batch
         # Claim the row first, so two browser tabs (or a double click) can
         # never send the same person the same mail twice.

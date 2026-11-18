@@ -27,6 +27,7 @@
     {% if user.is_authenticated %}
       <a href="{% url 'home' %}">Home</a>
       <a href="{% url 'update_create' %}">Send update</a>
+      <button type="button" class="nav-link-btn" id="drawer-open">Check delivery</button>
       <a href="{% url 'create_event' %}" class="nav-cta">New event</a>
       <span class="nav-user">{{ user.email|default:user.username }}</span>
       <a href="{% url 'account_logout' %}">Log out</a>
@@ -53,6 +54,111 @@
   <span>Certify — certificates and event updates for organizers.</span>
   <span style="margin-left:16px;"><a href="{% url 'privacy_policy' %}">Privacy Policy</a></span>
 </footer>
+{% if user.is_authenticated %}
+<div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+<aside class="drawer" id="delivery-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" aria-hidden="true">
+  <div class="drawer-head">
+    <h2 id="drawer-title">Check delivery</h2>
+    <button type="button" class="drawer-close" id="drawer-close" aria-label="Close">&times;</button>
+  </div>
+  <p class="drawer-hint">Type a name or email to see whether that person got your update or certificate.</p>
+  <input type="search" id="drawer-q" class="drawer-input" placeholder="Name or email" autocomplete="off">
+  <div class="drawer-results" id="drawer-results" aria-live="polite"></div>
+  <p class="drawer-foot">"Sent" means Gmail accepted the mail. If an address doesn't exist, Gmail usually puts a "Delivery Status Notification" bounce message in your own inbox.</p>
+</aside>
+<script>
+(function () {
+  const drawer = document.getElementById('delivery-drawer');
+  if (!drawer) return;
+  const backdrop = document.getElementById('drawer-backdrop');
+  const openBtn = document.getElementById('drawer-open');
+  const closeBtn = document.getElementById('drawer-close');
+  const input = document.getElementById('drawer-q');
+  const results = document.getElementById('drawer-results');
+  const url = "{% url 'delivery_search' %}";
+  const STATUS = {
+    sent: ['seal-sent', 'Sent'],
+    failed: ['seal-failed', 'Failed'],
+    pending: ['seal-pending', 'Not sent yet'],
+    sending: ['seal-pending', 'Sending now'],
+    generated: ['seal-generated', 'Certificate ready, not emailed']
+  };
+  let timer = null, seq = 0;
+
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function note(text) { results.replaceChildren(el('p', 'dr-empty', text)); }
+
+  function openDrawer() {
+    drawer.classList.add('open');
+    drawer.setAttribute('aria-hidden', 'false');
+    backdrop.hidden = false;
+    document.body.style.overflow = 'hidden';
+    setTimeout(function () { input.focus(); }, 60);
+  }
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    backdrop.hidden = true;
+    document.body.style.overflow = '';
+    openBtn.focus();
+  }
+
+  function render(list, q) {
+    if (!list.length) { note('No one matching "' + q + '" in your updates or certificates.'); return; }
+    results.replaceChildren();
+    list.forEach(function (r) {
+      const card = el('div', 'dr-item');
+      card.appendChild(el('div', 'dr-name', r.name));
+      card.appendChild(el('div', 'dr-email', r.email));
+      const line = el('div', 'dr-line');
+      const st = STATUS[r.status] || ['seal-pending', r.status];
+      const badge = el('span', 'seal-badge ' + st[0]);
+      badge.appendChild(el('span', 'dot'));
+      badge.appendChild(document.createTextNode(' ' + st[1]));
+      line.appendChild(badge);
+      if (r.when) {
+        const d = new Date(r.when);
+        line.appendChild(el('span', 'dr-time', d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })));
+      }
+      card.appendChild(line);
+      const link = el('a', 'dr-title', (r.kind === 'update' ? 'Update: ' : 'Certificate: ') + r.title);
+      link.href = r.url;
+      card.appendChild(link);
+      if (r.status === 'failed' && r.error) card.appendChild(el('div', 'dr-error', r.error));
+      results.appendChild(card);
+    });
+  }
+
+  async function search(q) {
+    const mine = ++seq;
+    try {
+      const resp = await fetch(url + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
+      if (!resp.ok) throw new Error('bad status');
+      const data = await resp.json();
+      if (mine === seq) render(data.results, q);
+    } catch (e) {
+      if (mine === seq) note('Could not search right now. Check your connection and try again.');
+    }
+  }
+
+  openBtn.addEventListener('click', openDrawer);
+  closeBtn.addEventListener('click', closeDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drawer.classList.contains('open')) closeDrawer(); });
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { seq++; results.replaceChildren(); return; }
+    timer = setTimeout(function () { search(q); }, 250);
+  });
+})();
+</script>
+{% endif %}
 <script>
   (function () {
     const root = document.documentElement;

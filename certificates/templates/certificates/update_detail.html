@@ -97,11 +97,41 @@
   </div>
 </div>
 
-{% if total > 450 %}
-<div class="flash flash-error" style="margin-bottom:24px;">
-  This list has {{ total }} people. A normal @gmail.com account can send about 500 emails per day (Google Workspace: about 2,000). If Google's limit is hit, sending stops by itself — come back tomorrow and press send again to continue with the rest.
+<div class="form-card" style="margin-bottom:24px; max-width:none;">
+  <label style="margin-top:0;">Gmail sending in the last 24 hours</label>
+  <div style="font-size:1.05rem;"><b id="quota-used">{{ used_24h }}</b> of about {{ daily_limit }} emails</div>
+  <div class="send-bar" style="margin:10px 0 6px;"><span style="width:{{ quota_pct }}%;{% if quota_pct >= 90 %} background:var(--err);{% elif quota_pct >= 70 %} background:var(--stamp);{% endif %}"></span></div>
+  <div class="help-text">Includes certificate emails. Google counts a rolling 24 hours, not the calendar day.</div>
+
+  {% if pending_count %}
+    {% if over_quota %}
+      <div class="flash flash-error" style="margin-top:14px;">{{ pending_count }} people are still waiting, but you can send about {{ quota_left }} more right now. Turn on auto-continue below and the rest go out by themselves as your limit frees up.</div>
+    {% endif %}
+    <form method="post" action="{% url 'update_toggle_auto' campaign.id %}" style="margin-top:14px;">
+      {% csrf_token %}
+      <label style="display:flex; align-items:center; gap:10px; margin:0; cursor:pointer; color:var(--text-hi);">
+        <input type="checkbox" name="auto" value="on" {% if campaign.auto_continue %}checked{% endif %} onchange="this.form.submit()" style="width:18px; height:18px;">
+        Auto-continue: send the rest automatically
+      </label>
+      <noscript><button class="btn btn-ghost btn-sm" type="submit" style="margin-top:8px;">Save</button></noscript>
+    </form>
+    {% if campaign.auto_continue %}
+      <div class="help-text" style="margin-top:8px;"><b>{{ campaign.auto_status|default:"Waiting for the next scheduled check." }}</b>{% if not cron_ready %} The scheduled link isn't set up yet, so nothing will send on its own until it is (see below).{% endif %}</div>
+    {% endif %}
+  {% endif %}
+
+  <details style="margin-top:14px;">
+    <summary style="cursor:pointer; font-weight:600;">How auto-continue works</summary>
+    <div class="help-text" style="margin-top:8px;">
+      Google lets a normal Gmail account send about {{ daily_limit }} emails per rolling 24 hours. With auto-continue on, a check runs every minute and sends the waiting people, always stopping about 50 short of the limit so your own mail keeps working. As earlier sends pass 24 hours, it carries on by itself.
+      <ol style="margin:10px 0 0 18px; padding:0;">
+        <li>One-time setup: in Render, open your service, then Environment, and add <b>CRON_SECRET</b> with any long random text.</li>
+        <li>On cron-job.org, create a job with the address <b>https://{{ request.get_host }}/cron/continue/?key=YOUR_CRON_SECRET</b> that runs every 1 minute.</li>
+        <li>While your Google app is in Testing mode, your sign-in expires after 7 days. If the status says so, log in again.</li>
+      </ol>
+    </div>
+  </details>
 </div>
-{% endif %}
 
 <div class="form-card" style="margin-bottom:24px; max-width:none;">
   <label style="margin-top:0;">What people receive</label>
@@ -265,9 +295,11 @@
         const d = await postWithRetry(sendUrl);
         failedThisRun += d.failed;
         setBar(d.sent_total + d.failed_total);
+        const quotaEl = document.getElementById('quota-used');
+        if (quotaEl) quotaEl.textContent = d.used_24h;
         show('Sending your update',
              'Sent ' + d.sent_total + ' of ' + total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : ''),
-             'Keep this page open until it finishes.');
+             'Keep this page open until it finishes. Gmail usage in the last 24 hours: ' + d.used_24h + ' of about ' + d.daily_limit + '.');
         if (d.stop) {
           endWith('is-paused', 'Sending paused', 'Sent ' + d.sent_total + ' of ' + total, d.error, 'Close', closeOverlay);
           return;

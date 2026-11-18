@@ -1,19 +1,24 @@
 """Views for the "Send Updates" section: write one message, upload a
 Name/Email list, optionally attach a poster/photos, and mail everyone."""
 
+import hmac
 import os
 import re
+import time
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
 from django.db import transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from .models import UpdateAttachment, UpdateCampaign, UpdateRecipient
+from .models import Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
 from .update_utils import (
     ALLOWED_ATTACHMENT_EXTENSIONS,
     MAX_ATTACHMENTS,
@@ -23,6 +28,10 @@ from .update_utils import (
     guess_content_type,
     parse_recipient_file,
     send_update_batch,
+    AUTO_RESERVE,
+    BATCH_SIZE,
+    DAILY_LIMIT,
+    sent_last_24h,
 )
 
 LIST_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".csv", ".txt", ".pdf")
@@ -168,10 +177,18 @@ def update_create(request):
 @login_required
 def update_detail(request, campaign_id):
     campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
+    used = sent_last_24h(request.user)
+    left = max(DAILY_LIMIT - used, 0)
     return render(
         request,
         "certificates/update_detail.html",
         {
+            "used_24h": used,
+            "daily_limit": DAILY_LIMIT,
+            "quota_left": left,
+            "quota_pct": min(100, round(used * 100 / DAILY_LIMIT)) if DAILY_LIMIT else 0,
+            "over_quota": campaign.pending_count > left,
+            "cron_ready": bool(os.environ.get("CRON_SECRET")),
             "campaign": campaign,
             "recipients": campaign.recipients.all(),
             "attachments": campaign.attachments.all(),
@@ -232,7 +249,89 @@ def update_send_batch(request, campaign_id):
     result["sent_total"] = campaign.sent_count
     result["failed_total"] = campaign.failed_count
     result["total"] = campaign.total
+    result["used_24h"] = sent_last_24h(request.user)
+    result["daily_limit"] = DAILY_LIMIT
     return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def update_toggle_auto(request, campaign_id):
+    campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
+    turn_on = request.POST.get("auto") == "on" and campaign.pending_count > 0
+    campaign.auto_continue = turn_on
+    campaign.auto_status = "Waiting for the next scheduled check." if turn_on else ""
+    campaign.save(update_fields=["auto_continue", "auto_status"])
+    if turn_on:
+        messages.success(request, "Auto-continue is on. The people still waiting will be sent automatically.")
+        if not os.environ.get("CRON_SECRET"):
+            messages.error(request, "The scheduled link isn't set up yet, so nothing will send on its own. See \"How auto-continue works\" below.")
+    else:
+        messages.success(request, "Auto-continue is off.")
+    return redirect("update_detail", campaign_id=campaign.id)
+
+
+CRON_BUDGET_SECONDS = 22
+
+
+@csrf_exempt
+def cron_continue(request):
+    """Called every minute by cron-job.org. Sends waiting people for every
+    update that has auto-continue on, never going past the daily Gmail limit
+    (minus a small reserve). Protected by the CRON_SECRET environment
+    variable; with no secret set, it does nothing."""
+    secret = os.environ.get("CRON_SECRET", "")
+    key = request.GET.get("key", "")
+    if not secret or not hmac.compare_digest(key.encode(), secret.encode()):
+        return JsonResponse({"error": "forbidden"}, status=403)
+
+    started = time.monotonic()
+    results = []
+    used_by_owner = {}
+    campaigns = list(UpdateCampaign.objects.filter(auto_continue=True).select_related("owner").order_by("created_at"))
+
+    for c in campaigns:
+        if time.monotonic() - started > CRON_BUDGET_SECONDS:
+            break
+        owner = c.owner
+        used = used_by_owner.get(owner.id)
+        if used is None:
+            used = sent_last_24h(owner)
+        allowed = DAILY_LIMIT - AUTO_RESERVE - used
+        sent_now = 0
+        status = ""
+
+        while allowed > 0 and time.monotonic() - started < CRON_BUDGET_SECONDS:
+            time_left = CRON_BUDGET_SECONDS - (time.monotonic() - started)
+            r = send_update_batch(c, owner, batch_size=min(BATCH_SIZE, allowed), budget=time_left)
+            done = r["sent"] + r["failed"]
+            allowed -= done
+            used += done
+            sent_now += r["sent"]
+            if r["stop"]:
+                status = r["error"]
+                break
+            if r["remaining"] == 0 or done == 0:
+                break
+        used_by_owner[owner.id] = used
+
+        remaining = c.recipients.filter(status__in=["pending", "sending"]).count()
+        if remaining == 0:
+            c.auto_continue = False
+            c.auto_status = "Finished. Everyone has been sent this update."
+        elif status:
+            c.auto_status = status[:200]
+        elif allowed <= 0:
+            c.auto_status = (
+                f"Paused: about {used} emails sent in the last 24 hours. "
+                "It continues by itself as your Gmail limit frees up."
+            )[:200]
+        else:
+            c.auto_status = f"Sending automatically. {remaining} left."
+        c.save(update_fields=["auto_continue", "auto_status"])
+        results.append({"campaign": c.id, "sent": sent_now, "remaining": remaining, "status": c.auto_status})
+
+    return JsonResponse({"ok": True, "campaigns": results})
 
 
 @login_required
@@ -253,3 +352,46 @@ def update_delete(request, campaign_id):
     campaign.delete()
     messages.success(request, f'"{subject}" was deleted.')
     return redirect("home")
+
+
+@login_required
+def delivery_search(request):
+    """Powers the "Check delivery" side panel: find a person by name or email
+    and say whether each update / certificate mail to them went out."""
+    q = request.GET.get("q", "").strip()
+    if len(q) < 2:
+        return JsonResponse({"results": []})
+
+    rows = []
+    updates = (
+        UpdateRecipient.objects.filter(campaign__owner=request.user)
+        .filter(Q(email__icontains=q) | Q(name__icontains=q))
+        .select_related("campaign")
+        .order_by("-updated_at")[:30]
+    )
+    for r in updates:
+        rows.append({
+            "kind": "update", "name": r.name, "email": r.email, "title": r.campaign.subject,
+            "status": r.status, "error": r.error_message, "stamp": r.updated_at,
+            "url": reverse("update_detail", args=[r.campaign_id]),
+        })
+    certs = (
+        Student.objects.filter(event__owner=request.user)
+        .filter(Q(email__icontains=q) | Q(name__icontains=q))
+        .select_related("event")
+        .order_by("-updated_at")[:30]
+    )
+    for s in certs:
+        rows.append({
+            "kind": "certificate", "name": s.name, "email": s.email, "title": s.event.name,
+            "status": s.status, "error": s.error_message, "stamp": s.updated_at,
+            "url": reverse("student_list", args=[s.event_id]),
+        })
+
+    rows.sort(key=lambda x: x["stamp"], reverse=True)
+    rows = rows[:40]
+    for x in rows:
+        stamp = x.pop("stamp")
+        # pending rows were never mailed, so their time means nothing
+        x["when"] = stamp.isoformat() if x["status"] in ("sent", "failed", "generated") else None
+    return JsonResponse({"results": rows})

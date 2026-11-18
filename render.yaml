@@ -19,3 +19,5 @@ services:
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET
         sync: false
+      - key: CRON_SECRET
+        sync: false

@@ -25,4 +25,7 @@ urlpatterns = [
     path("updates/<int:campaign_id>/send-batch/", update_views.update_send_batch, name="update_send_batch"),
     path("updates/<int:campaign_id>/reset-failed/", update_views.update_reset_failed, name="update_reset_failed"),
     path("updates/<int:campaign_id>/delete/", update_views.update_delete, name="update_delete"),
+    path("updates/<int:campaign_id>/auto/", update_views.update_toggle_auto, name="update_toggle_auto"),
+    path("delivery/search/", update_views.delivery_search, name="delivery_search"),
+    path("cron/continue/", update_views.cron_continue, name="cron_continue"),
 ]
