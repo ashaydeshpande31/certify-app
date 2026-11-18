@@ -15,7 +15,9 @@
 <link rel="icon" type="image/svg+xml" href="{% static 'certificates/img/certify-mark.svg' %}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Serif:ital@0;1&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500..800&family=Instrument+Serif:ital@0;1&family=Public+Sans:wght@400..700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500..800&family=Instrument+Serif:ital@0;1&family=Public+Sans:wght@400..700&display=swap"></noscript>
+<link rel="preload" as="image" type="image/svg+xml" href="{% static 'certificates/img/certify-logo-dark.svg' %}">
 <link rel="stylesheet" href="{% static 'certificates/css/style.css' %}">
 <script>
   try { document.documentElement.setAttribute('data-theme', localStorage.getItem('certify-theme') || 'dark'); } catch (e) {}
@@ -27,10 +29,10 @@
 
 <header class="topbar">
   <a href="{% url 'home' %}" class="brand" aria-label="Certify home">
-    <span class="mark3d" id="mark3d" aria-hidden="true" data-src="{% static 'certificates/img/certify-logo-dark.svg' %}"><img src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="" width="212" height="60"></span>
+    <span class="mark3d" id="mark3d" aria-hidden="true" data-src="{% static 'certificates/img/certify-logo-dark.svg' %}"><img src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="" width="212" height="60" decoding="async"></span>
     <span class="word">
-      <img class="logo-dark" src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="Certify" width="212" height="60">
-      <img class="logo-light" src="{% static 'certificates/img/certify-logo.svg' %}" alt="Certify" width="212" height="60">
+      <img class="logo-dark" src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="Certify" width="212" height="60" fetchpriority="high" decoding="async">
+      <img class="logo-light" src="{% static 'certificates/img/certify-logo.svg' %}" alt="Certify" width="212" height="60" loading="lazy" decoding="async">
     </span>
     <svg class="orbit-plane" id="orbit-plane" viewBox="0 0 48 40" aria-hidden="true"><path d="M2 18 L46 2 L30 38 L22 24 Z" fill="#fff" stroke="#9fb4e8" stroke-width="2" stroke-linejoin="round"/><path d="M22 24 L46 2 L26 27 Z" fill="#c9d6f5"/><path d="M22 24 L25 36 L30 38 Z" fill="#9fb4e8"/></svg>
   </a>
@@ -46,6 +48,11 @@
           <div class="qp-bar"><span id="qp-fill"></span></div>
           <div class="qp-line" id="qp-used"></div>
           <div class="qp-line" id="qp-free"></div>
+          <div class="qp-outside">
+            <label for="qp-out-n">Already sent today from Gmail itself?</label>
+            <div class="qp-out-row"><input type="number" id="qp-out-n" min="0" max="100000" inputmode="numeric" placeholder="0"><button type="button" class="btn btn-ghost" id="qp-out-save">Save</button></div>
+            <p class="qp-out-help">Gmail counts every mail from your account, also the ones you sent outside Certify. Enter that number so this counter matches Gmail.</p>
+          </div>
           <p class="qp-note">Counts update and certificate emails together. Gmail allows about 500 a day on a personal account and 2,000 on Google Workspace.</p>
         </div>
     </div>
@@ -280,6 +287,10 @@
     <h2 id="cs-title">Ready to send?</h2>
     <p class="cs-count" id="cs-count"></p>
     <div class="qp-bar"><span id="cs-fill"></span></div>
+    <div class="cs-outside">
+      <label for="cs-out-n">Mails you already sent today from Gmail itself (outside Certify)</label>
+      <input type="number" id="cs-out-n" min="0" max="100000" inputmode="numeric" placeholder="0">
+    </div>
     <p class="cs-msg" id="cs-msg"></p>
     <div class="cs-actions">
       <button type="button" class="btn btn-ghost" id="cs-cancel">Cancel</button>
@@ -309,27 +320,49 @@
     }
   });
   // window.certifyConfirmSend(n, what) -> Promise<boolean>; n = how many emails this send will try
+  function csrf() { const m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; }
   window.certifyConfirmSend = async function (n, what) {
     let q = null;
     try { const r = await fetch(url, { credentials: 'same-origin' }); if (r.ok) q = await r.json(); } catch (e) {}
     if (!q) return window.confirm('Send ' + n + ' email(s)? They go out from your own Gmail account.');
-    const pct = q.limit ? Math.min(100, Math.round(q.used * 100 / q.limit)) : 0;
-    $('cs-title').textContent = 'Send ' + (what || 'emails') + ' now?';
-    $('cs-count').innerHTML = '';
-    const b = document.createElement('b'); b.textContent = q.used;
-    $('cs-count').append('You have sent ', b, ' out of about ' + q.limit + ' emails in the last 24 hours.');
-    $('cs-fill').style.width = pct + '%';
-    let msg;
-    if (q.left === 0) msg = 'You have reached the limit, so Gmail will most likely refuse these ' + n + '. They will stay pending and can be sent when room frees up.';
-    else if (n > q.left) msg = 'This send has ' + n + ' emails but only about ' + q.left + ' are left. It will stop when Gmail refuses, and the rest stay pending.';
-    else msg = 'This send has ' + n + ' emails. After it you will have about ' + (q.left - n) + ' left.';
-    $('cs-msg').textContent = msg;
-    $('cs-msg').dataset.warn = (q.left === 0 || n > q.left) ? '1' : '';
-    $('cs-ok').textContent = q.left === 0 || n > q.left ? 'Send anyway' : 'Send ' + n;
+    const base = q.used - (q.outside || 0);          // mails Certify itself sent in the last 24 hours
+    const inp = $('cs-out-n');
+    inp.value = q.outside || '';
+    function paint() {
+      const out = Math.max(parseInt(inp.value, 10) || 0, 0);
+      const used = base + out, left = Math.max(q.limit - used, 0);
+      const pct = q.limit ? Math.min(100, Math.round(used * 100 / q.limit)) : 0;
+      $('cs-title').textContent = 'Send ' + (what || 'emails') + ' now?';
+      $('cs-count').innerHTML = '';
+      const b = document.createElement('b'); b.textContent = used;
+      $('cs-count').append('Gmail has counted ', b, ' out of about ' + q.limit + ' emails in the last 24 hours.');
+      $('cs-fill').style.width = pct + '%';
+      let msg;
+      if (left === 0) msg = 'Your Gmail limit is full, so Gmail will most likely refuse these ' + n + '. They stay waiting and can be sent when room frees up.';
+      else if (n > left) msg = 'This send has ' + n + ' emails but Gmail will only take about ' + left + ' more. Sending stops there. The other ' + (n - left) + ' stay waiting, nothing is lost, and you can send them later.';
+      else msg = 'This send has ' + n + ' emails. After it you will have about ' + (left - n) + ' left.';
+      $('cs-msg').textContent = msg;
+      $('cs-msg').dataset.warn = (left === 0 || n > left) ? '1' : '';
+      $('cs-ok').textContent = left === 0 || n > left ? 'Send anyway' : 'Send ' + n;
+      return out;
+    }
+    inp.oninput = paint;
+    paint();
     back = document.activeElement;
     bd.hidden = false; document.body.style.overflow = 'hidden';
     setTimeout(function () { $('cs-ok').focus(); }, 50);
-    return new Promise(function (res) { resolver = res; });
+    const ok = await new Promise(function (res) { resolver = res; });
+    if (ok) {
+      const out = Math.max(parseInt(inp.value, 10) || 0, 0);
+      if (out !== (q.outside || 0)) {
+        try {
+          const fd = new FormData(); fd.append('count', String(out));
+          await fetch("{% url 'quota_outside' %}", { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf() }, body: fd });
+          document.dispatchEvent(new CustomEvent('quota:update', { detail: { used: base + out, limit: q.limit } }));
+        } catch (e) {}
+      }
+    }
+    return ok;
   };
 })();
 </script>
@@ -355,6 +388,7 @@
     $('qp-left').textContent = q.left;
     $('qp-fill').style.width = pct + '%';
     $('qp-used').textContent = q.used + ' of about ' + q.limit + ' sent in the last 24 hours.';
+    if (document.activeElement !== $('qp-out-n')) $('qp-out-n').value = q.outside || '';
     $('qp-free').textContent = q.used && q.frees_at
       ? (q.left === 0 ? 'Next room frees up in ' : 'Your oldest mail leaves the 24-hour window in ') + when(q.frees_at) + '.'
       : 'Nothing sent in the last 24 hours.';
@@ -365,6 +399,14 @@
       if (r.ok) paint(await r.json());
     } catch (e) {}
   }
+  function csrf() { const m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; }
+  $('qp-out-save').addEventListener('click', async function () {
+    const fd = new FormData(); fd.append('count', String(Math.max(parseInt($('qp-out-n').value, 10) || 0, 0)));
+    try {
+      const r = await fetch("{% url 'quota_outside' %}", { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf() }, body: fd });
+      if (r.ok) paint(await r.json());
+    } catch (e) {}
+  });
   function close() { pop.hidden = true; pill.setAttribute('aria-expanded', 'false'); }
   pill.addEventListener('click', function (e) {
     e.stopPropagation();
@@ -380,7 +422,8 @@
     paint({ used: used, limit: limit, left: Math.max(limit - used, 0), frees_at: null });
     load();
   });
-  load();
+  // fetch the count when the browser is idle, so it never delays the first paint
+  if (window.requestIdleCallback) requestIdleCallback(load, { timeout: 2500 }); else setTimeout(load, 800);
 })();
 </script>
 {% endif %}
@@ -412,21 +455,28 @@
     }, { passive: true });
     // the plane flies round the badge: in front on the near side, behind on the far side
     let orbitT0 = performance.now(), orbitA0 = 0, active = !window.certifyIntro;
-    function orbitState(a) {
-      const em = parseFloat(getComputedStyle(plane.parentNode).fontSize) || 60;
-      const cx = mark.offsetLeft + mark.offsetWidth / 2, cy = mark.offsetTop + mark.offsetHeight / 2;
+    let em = 60, cx = 0, cy = 0;
+    function measure() {            // measured once (and on resize), not on every frame
+      em = parseFloat(getComputedStyle(plane.parentNode).fontSize) || 60;
+      cx = mark.offsetLeft + mark.offsetWidth / 2; cy = mark.offsetTop + mark.offsetHeight / 2;
+    }
+    measure();
+    window.addEventListener('resize', measure, { passive: true });
+    function orbitState(a, viewport) {
+      if (viewport) measure();
       const rx = em * 0.66, ry = em * 0.2, tilt = -0.35, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
       const x = cx + ex * Math.cos(tilt) - ey * Math.sin(tilt), y = cy + ex * Math.sin(tilt) + ey * Math.cos(tilt);
       const ax = -Math.sin(a) * rx, ay = Math.cos(a) * ry;
       const head = Math.atan2(ax * Math.sin(tilt) + ay * Math.cos(tilt), ax * Math.cos(tilt) - ay * Math.sin(tilt)) + 0.1;
-      const z = Math.sin(a), r = plane.parentNode.getBoundingClientRect();
-      return { x: x, y: y, vx: r.left + x, vy: r.top + y, head: head, z: z, size: em * 0.3, sc: 0.8 + 0.3 * ((z + 1) / 2) };
+      const z = Math.sin(a), st = { x: x, y: y, head: head, z: z, size: em * 0.3, sc: 0.8 + 0.3 * ((z + 1) / 2) };
+      if (viewport) { const r = plane.parentNode.getBoundingClientRect(); st.vx = r.left + x; st.vy = r.top + y; }
+      return st;
     }
     // the intro (home page) uses these to fly the plane in, then hand it over to circle the badge
-    window.certifyOrbitState = orbitState;
+    window.certifyOrbitState = function (a) { return orbitState(a, true); };
     window.certifyOrbitStart = function (a0) { orbitA0 = a0; orbitT0 = performance.now(); active = true; };
     function fly(now) {
-      if (!active) { plane.style.visibility = 'hidden'; requestAnimationFrame(fly); return; }
+      if (!active || document.hidden) { plane.style.visibility = active ? 'visible' : 'hidden'; requestAnimationFrame(fly); return; }
       plane.style.visibility = 'visible';
       const st = orbitState(orbitA0 + ((now - orbitT0) / 3200) * Math.PI * 2);
       plane.style.transform = 'translate(' + (st.x - st.size / 2) + 'px,' + (st.y - st.size * 0.42) + 'px) rotate(' + st.head + 'rad) scale(' + st.sc + ')';

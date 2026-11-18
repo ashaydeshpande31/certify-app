@@ -887,3 +887,7 @@ legend { padding:0; }
 .qp-out-row input, .cs-outside input { width: 100%; min-height: 40px; }
 .qp-out-row .btn { margin: 0; padding: 8px 14px; min-height: 40px; }
 .qp-out-help { font-size: .76rem; color: var(--text-dim); margin: 6px 0 0; }
+
+/* performance: keep the fixed background on its own layer so scrolling never repaints it */
+body::before { transform: translateZ(0); }
+.footer { content-visibility: auto; contain-intrinsic-size: auto 80px; }
