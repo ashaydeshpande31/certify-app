@@ -2,7 +2,8 @@
 <div id="intro" class="intro" role="presentation" hidden>
   <div class="intro-bg" id="intro-bg"></div>
   <div class="intro-stage">
-    <div class="intro-logo" id="intro-logo"><img src="{% static 'certificates/img/certify-mark.svg' %}" alt="" width="150" height="130"></div>
+    <div class="intro-shadow" id="intro-shadow"></div>
+    <div class="intro-logo" id="intro-logo" data-src="{% static 'certificates/img/certify-mark.svg' %}"></div>
     <svg class="intro-plane" id="intro-plane" viewBox="0 0 48 40" width="54" height="45" aria-hidden="true">
       <path d="M2 18 L46 2 L30 38 L22 24 Z" fill="#fff" stroke="#9fb4e8" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M22 24 L46 2 L26 27 Z" fill="#c9d6f5"/>
@@ -16,7 +17,9 @@
   .intro[hidden] { display: none; }
   .intro-bg { position: absolute; inset: 0; background: var(--ink-900, #0a1020); }
   .intro-stage { position: relative; width: 100%; height: 100%; perspective: 700px; }
-  .intro-logo { position: absolute; left: 50%; top: 50%; width: 150px; height: 130px; margin: -65px 0 0 -75px; z-index: 2; will-change: transform; transform-style: preserve-3d; filter: drop-shadow(0 18px 18px rgba(0,0,0,.35)); }
+  .intro-logo { position: absolute; left: 50%; top: 50%; width: 150px; height: 130px; margin: -65px 0 0 -75px; z-index: 2; will-change: transform; transform-style: preserve-3d; }
+  .intro-logo img { position: absolute; left: 0; top: 0; backface-visibility: visible; }
+  .intro-shadow { position: absolute; left: 50%; top: 50%; width: 120px; height: 18px; margin: 95px 0 0 -60px; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.55), transparent); z-index: 1; will-change: transform, opacity; }
   .intro-logo img { width: 100%; height: 100%; display: block; }
   .intro-plane { position: absolute; left: 0; top: 0; z-index: 3; will-change: transform; filter: drop-shadow(0 6px 6px rgba(0,0,0,.35)); }
   .intro-skip { position: absolute; right: 16px; bottom: 16px; z-index: 4; padding: 10px 18px; min-height: 44px; border-radius: 999px; border: 1px solid var(--ink-border, #24324f); background: transparent; color: var(--text-hi, #c9d3ea); font: inherit; cursor: pointer; }
@@ -33,6 +36,16 @@
   box.hidden = false;
 
   var logo = document.getElementById('intro-logo'), plane = document.getElementById('intro-plane'), bg = document.getElementById('intro-bg');
+  // a thick, solid-looking logo: a stack of copies pushed back in depth, darker towards the back
+  var src = logo.getAttribute('data-src'), LAYERS = 12;
+  for (var i = LAYERS - 1; i >= 0; i--) {
+    var im = document.createElement('img');
+    im.src = src; im.alt = ''; im.width = 150; im.height = 130; im.setAttribute('aria-hidden', 'true');
+    im.style.transform = 'translateZ(' + (-i * 1.5) + 'px)';
+    if (i > 0) im.style.filter = 'brightness(' + (0.72 - i * 0.025) + ') saturate(.9)';
+    logo.appendChild(im);
+  }
+  var shadow = document.getElementById('intro-shadow');
   var W = window.innerWidth, H = window.innerHeight, cx = W / 2, cy = H / 2;
   var rx = Math.min(W * 0.34, 160), ry = rx * 0.38;
   var IN = 700, ORBIT = 1200, LAND = 900, TOTAL = IN + ORBIT + LAND;   // 2.8 s
@@ -74,8 +87,10 @@
 
     var sec = t / 1000, e = t > IN + ORBIT ? ease((t - IN - ORBIT) / LAND) : 0;
     var wob = 1 - e;                                        // the 3D float calms down as the logo flies up-left
-    var sc = lerp(1, target.size / 130, e);
-    logo.style.transform = 'translate(' + ((target.x - cx) * e) + 'px,' + ((target.y - cy) * e + Math.sin(sec * 5) * 9 * wob) + 'px) scale(' + sc + ') rotateY(' + (Math.sin(sec * 3.2) * 22 * wob) + 'deg) rotateX(' + (Math.cos(sec * 4) * 8 * wob) + 'deg)';
+    var kO = Math.min(Math.max((t - IN) / ORBIT, 0), 1), spin = 360 * ease(kO), sc = lerp(1, target.size / 130, e);
+    logo.style.transform = 'translate(' + ((target.x - cx) * e) + 'px,' + ((target.y - cy) * e + Math.sin(sec * 5) * 9 * wob) + 'px) scale(' + sc + ') rotateY(' + (spin + Math.sin(sec * 3.2) * 18 * wob) + 'deg) rotateX(' + (Math.cos(sec * 4) * 10 * wob) + 'deg)';
+    shadow.style.transform = 'scale(' + (1 - Math.sin(sec * 5) * 0.12 * wob) + ')';
+    shadow.style.opacity = wob;
     bg.style.opacity = e > 0.4 ? Math.max(1 - (e - 0.4) / 0.6, 0) : 1;   // reveal the page while the logo lands
     raf = requestAnimationFrame(frame);
   }
