@@ -54,10 +54,10 @@
 
   // where the real logo sits in the top-left of the page (the plane lands on it)
   var target = { x: 60, y: 36, size: 56 };
-  var real = Array.prototype.filter.call(document.querySelectorAll('.brand-logo'), function (n) { return n.offsetParent !== null; })[0];
+  var real = document.getElementById('mark3d');
   if (real) {
     var r = real.getBoundingClientRect();
-    if (r.width) target = { x: r.left + r.width * 0.14, y: r.top + r.height * 0.5, size: r.height * 0.95 };
+    if (r.width) target = { x: r.left + r.width * 0.5, y: r.top + r.height * 0.5, size: r.height * 1.0 };
   }
 
   function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }

@@ -803,7 +803,7 @@ tbody tr:hover { background: var(--accent-wash); }
 .lbl-short { display: none; }
 @media (max-width: 720px) { .nav-link-btn svg, .topnav a svg { display: block; } .lbl-short { display: inline; } }
 @media (max-width: 380px) {
-  .brand-logo { height: 34px; }
+  .brand { font-size: 34px; }
   .nav-signin { padding: 8px 10px; font-size: 0.8rem; }
   .top-right { gap: 6px; }
   .quota-pill { padding: 6px 8px; font-size: 0.74rem; }
@@ -863,14 +863,19 @@ legend { padding:0; }
 .swatch { padding:0; background-clip:padding-box; }
 .swatch:focus-visible { outline:2px solid var(--accent-soft); outline-offset:3px; }
 
-/* header logo: a gentle 3D sway, and it follows the mouse */
-.brand { perspective: 520px; }
-.brand-logo { transform-origin: 28% 50%; transform-style: preserve-3d; will-change: transform; filter: drop-shadow(0 5px 6px rgba(0,0,0,.4)); transition: transform .18s ease-out; }
-[data-theme="light"] .brand-logo { filter: drop-shadow(0 5px 6px rgba(20,30,60,.28)); }
-@keyframes logo-sway {
-  0%, 100% { transform: rotateY(-16deg) rotateX(5deg) translateY(0); }
-  50% { transform: rotateY(16deg) rotateX(-5deg) translateY(-2px); }
+/* header badge: thick 3D badge, sways and follows the mouse; the wordmark stays still */
+.brand { position: relative; font-size: 60px; gap: 0; perspective: 520px; }
+.mark3d { position: relative; z-index: 2; width: 1.101em; height: 1em; flex: none; transform-style: preserve-3d; will-change: transform; transition: transform .18s ease-out; }
+.mark3d img { position: absolute; left: 0; top: 0; height: 1em; width: auto; max-width: none; clip-path: inset(0 68.83% 0 0); }
+.mark3d img:last-child { filter: drop-shadow(0 .06em .06em rgba(0,0,0,.4)); }
+.word { display: block; width: 2.431em; height: 1em; overflow: hidden; flex: none; }
+.word img { height: 1em; width: auto; max-width: none; margin-left: -1.101em; display: block; }
+.orbit-plane { position: absolute; left: 0; top: 0; width: .3em; height: .25em; pointer-events: none; will-change: transform; filter: drop-shadow(0 .03em .03em rgba(0,0,0,.4)); }
+@keyframes mark-sway {
+  0%, 100% { transform: rotateY(-30deg) rotateX(6deg); }
+  50% { transform: rotateY(30deg) rotateX(-6deg); }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .brand-logo.sway { animation: logo-sway 4.5s ease-in-out infinite; }
+  .mark3d.sway { animation: mark-sway 4.5s ease-in-out infinite; }
 }
+@media (max-width: 720px) { .brand { font-size: 40px; } }

@@ -27,8 +27,12 @@
 
 <header class="topbar">
   <a href="{% url 'home' %}" class="brand" aria-label="Certify home">
-    <img class="brand-logo logo-dark" src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="Certify" width="212" height="60">
-    <img class="brand-logo logo-light" src="{% static 'certificates/img/certify-logo.svg' %}" alt="Certify" width="212" height="60">
+    <span class="mark3d" id="mark3d" aria-hidden="true" data-src="{% static 'certificates/img/certify-logo-dark.svg' %}"><img src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="" width="212" height="60"></span>
+    <span class="word">
+      <img class="logo-dark" src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="Certify" width="212" height="60">
+      <img class="logo-light" src="{% static 'certificates/img/certify-logo.svg' %}" alt="Certify" width="212" height="60">
+    </span>
+    <svg class="orbit-plane" id="orbit-plane" viewBox="0 0 48 40" aria-hidden="true"><path d="M2 18 L46 2 L30 38 L22 24 Z" fill="#fff" stroke="#9fb4e8" stroke-width="2" stroke-linejoin="round"/><path d="M22 24 L46 2 L26 27 Z" fill="#c9d6f5"/><path d="M22 24 L25 36 L30 38 Z" fill="#9fb4e8"/></svg>
   </a>
   <div class="top-right">
     {% if user.is_authenticated %}
@@ -382,22 +386,47 @@
 {% endif %}
 <script>
   (function () {
-    // header logo: sways by itself, and tilts towards the mouse while it moves
-    const logos = document.querySelectorAll('.brand-logo');
-    if (!logos.length || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    // header badge: a thick 3D badge that sways, follows the mouse, and has a plane flying around it
+    const mark = document.getElementById('mark3d'), plane = document.getElementById('orbit-plane');
+    if (!mark) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const src = mark.getAttribute('data-src');
+    for (let i = 1; i < 8; i++) {
+      const im = document.createElement('img');
+      im.src = src; im.alt = ''; im.setAttribute('aria-hidden', 'true');
+      im.style.transform = 'translateZ(' + (-i * 0.022) + 'em)';
+      im.style.filter = 'brightness(' + (0.7 - i * 0.03) + ')';
+      mark.insertBefore(im, mark.firstChild);
+    }
+    if (reduce) { plane.style.display = 'none'; return; }
+    mark.classList.add('sway');
     let idleTimer = null;
-    function sway(on) { logos.forEach(function (l) { l.classList.toggle('sway', on); if (on) l.style.transform = ''; }); }
-    sway(true);
     document.addEventListener('pointermove', function (e) {
       if (e.pointerType !== 'mouse') return;
-      const w = window.innerWidth, h = window.innerHeight;
-      const dx = Math.max(-1, Math.min(1, (e.clientX / w - 0.15) * 2));
-      const dy = Math.max(-1, Math.min(1, (e.clientY / h - 0.1) * 2));
-      sway(false);
-      logos.forEach(function (l) { l.style.transform = 'rotateY(' + (dx * 24) + 'deg) rotateX(' + (-dy * 14) + 'deg)'; });
+      const dx = Math.max(-1, Math.min(1, (e.clientX / window.innerWidth - 0.1) * 2));
+      const dy = Math.max(-1, Math.min(1, (e.clientY / window.innerHeight - 0.1) * 2));
+      mark.classList.remove('sway');
+      mark.style.transform = 'rotateY(' + (dx * 35) + 'deg) rotateX(' + (-dy * 20) + 'deg)';
       clearTimeout(idleTimer);
-      idleTimer = setTimeout(function () { sway(true); }, 2500);
+      idleTimer = setTimeout(function () { mark.style.transform = ''; mark.classList.add('sway'); }, 2500);
     }, { passive: true });
+    // the plane flies round the badge: in front on the near side, behind on the far side
+    const t0 = performance.now();
+    function fly(now) {
+      const em = parseFloat(getComputedStyle(plane.parentNode).fontSize) || 60;
+      const cx = mark.offsetLeft + mark.offsetWidth / 2, cy = mark.offsetTop + mark.offsetHeight / 2;
+      const rx = em * 0.66, ry = em * 0.2, a = ((now - t0) / 3200) * Math.PI * 2;
+      const tilt = -0.35, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
+      const x = cx + ex * Math.cos(tilt) - ey * Math.sin(tilt), y = cy + ex * Math.sin(tilt) + ey * Math.cos(tilt);
+      const ax = -Math.sin(a) * rx, ay = Math.cos(a) * ry;
+      const head = Math.atan2(ax * Math.sin(tilt) + ay * Math.cos(tilt), ax * Math.cos(tilt) - ay * Math.sin(tilt));
+      const z = Math.sin(a), size = em * 0.3, sc = 0.8 + 0.3 * ((z + 1) / 2);
+      plane.style.transform = 'translate(' + (x - size / 2) + 'px,' + (y - size * 0.42) + 'px) rotate(' + (head + 0.1) + 'rad) scale(' + sc + ')';
+      plane.style.zIndex = z < 0 ? 1 : 3;
+      plane.style.opacity = z < 0 ? 0.75 : 1;
+      requestAnimationFrame(fly);
+    }
+    requestAnimationFrame(fly);
   })();
 </script>
 <script>
