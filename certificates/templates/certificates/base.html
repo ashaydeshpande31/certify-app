@@ -23,12 +23,9 @@
     <img class="brand-logo logo-dark" src="{% static 'certificates/img/certify-logo-dark.svg' %}" alt="Certify" width="212" height="60">
     <img class="brand-logo logo-light" src="{% static 'certificates/img/certify-logo.svg' %}" alt="Certify" width="212" height="60">
   </a>
-  <nav class="topnav">
+  <div class="top-right">
     {% if user.is_authenticated %}
-      <a href="{% url 'home' %}">Home</a>
-      <a href="{% url 'update_create' %}">Send update</a>
-      <button type="button" class="nav-link-btn" id="drawer-open">Check delivery</button>
-      <div class="quota-wrap">
+    <div class="quota-wrap">
         <button type="button" class="quota-pill" id="quota-pill" aria-expanded="false" aria-controls="quota-pop" title="Gmail sending limit">
           <span class="quota-dot" id="quota-dot"></span><span id="quota-pill-text">… / …</span>
         </button>
@@ -40,15 +37,20 @@
           <div class="qp-line" id="qp-free"></div>
           <p class="qp-note">Counts update and certificate emails together. Gmail allows about 500 a day on a personal account and 2,000 on Google Workspace.</p>
         </div>
-      </div>
-      <a href="{% url 'create_event' %}" class="nav-cta">New event</a>
+    </div>
+    <nav class="topnav" aria-label="Main">
+      <a href="{% url 'home' %}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Home</span></a>
+      <a href="{% url 'update_create' %}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg><span class="lbl-long">Send update</span><span class="lbl-short">Update</span></a>
+      <button type="button" class="nav-link-btn" id="drawer-open"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="lbl-long">Check delivery</span><span class="lbl-short">Delivery</span></button>
+      <a href="{% url 'create_event' %}" class="nav-cta"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New event</span></a>
       <span class="nav-user">{{ user.email|default:user.username }}</span>
-      <a href="{% url 'account_logout' %}">Log out</a>
+      <a href="{% url 'account_logout' %}" class="nav-out"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5V3h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Log out</span></a>
+    </nav>
     {% else %}
-      <a href="/accounts/google/login/?process=login" class="nav-cta">Sign in with Google</a>
+    <a href="/accounts/google/login/?process=login" class="nav-cta nav-signin">Sign in with Google</a>
     {% endif %}
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between dark and light theme">🌙</button>
-  </nav>
+  </div>
 </header>
 
 {% if messages %}
@@ -173,6 +175,54 @@
 </script>
 {% endif %}
 {% if user.is_authenticated %}
+<div class="cs-backdrop" id="cs-backdrop" hidden>
+  <div class="cs-modal" role="dialog" aria-modal="true" aria-labelledby="cs-title">
+    <h2 id="cs-title">Ready to send?</h2>
+    <p class="cs-count" id="cs-count"></p>
+    <div class="qp-bar"><span id="cs-fill"></span></div>
+    <p class="cs-msg" id="cs-msg"></p>
+    <div class="cs-actions">
+      <button type="button" class="btn btn-ghost" id="cs-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="cs-ok">Send</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const bd = document.getElementById('cs-backdrop');
+  if (!bd) return;
+  const url = "{% url 'quota_status' %}";
+  const $ = function (id) { return document.getElementById(id); };
+  let resolver = null;
+  function done(v) { bd.hidden = true; document.body.style.overflow = ''; if (resolver) { resolver(v); resolver = null; } }
+  $('cs-cancel').addEventListener('click', function () { done(false); });
+  $('cs-ok').addEventListener('click', function () { done(true); });
+  bd.addEventListener('click', function (e) { if (e.target === bd) done(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !bd.hidden) done(false); });
+  // window.certifyConfirmSend(n, what) -> Promise<boolean>; n = how many emails this send will try
+  window.certifyConfirmSend = async function (n, what) {
+    let q = null;
+    try { const r = await fetch(url, { credentials: 'same-origin' }); if (r.ok) q = await r.json(); } catch (e) {}
+    if (!q) return window.confirm('Send ' + n + ' email(s)? They go out from your own Gmail account.');
+    const pct = q.limit ? Math.min(100, Math.round(q.used * 100 / q.limit)) : 0;
+    $('cs-title').textContent = 'Send ' + (what || 'emails') + ' now?';
+    $('cs-count').innerHTML = '';
+    const b = document.createElement('b'); b.textContent = q.used;
+    $('cs-count').append('You have sent ', b, ' out of about ' + q.limit + ' emails in the last 24 hours.');
+    $('cs-fill').style.width = pct + '%';
+    let msg;
+    if (q.left === 0) msg = 'You have reached the limit, so Gmail will most likely refuse these ' + n + '. They will stay pending and can be sent when room frees up.';
+    else if (n > q.left) msg = 'This send has ' + n + ' emails but only about ' + q.left + ' are left. It will stop when Gmail refuses, and the rest stay pending.';
+    else msg = 'This send has ' + n + ' emails. After it you will have about ' + (q.left - n) + ' left.';
+    $('cs-msg').textContent = msg;
+    $('cs-msg').dataset.warn = (q.left === 0 || n > q.left) ? '1' : '';
+    $('cs-ok').textContent = q.left === 0 || n > q.left ? 'Send anyway' : 'Send ' + n;
+    bd.hidden = false; document.body.style.overflow = 'hidden';
+    setTimeout(function () { $('cs-ok').focus(); }, 50);
+    return new Promise(function (res) { resolver = res; });
+  };
+})();
+</script>
 <script>
 (function () {
   const pill = document.getElementById('quota-pill');

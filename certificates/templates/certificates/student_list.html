@@ -14,7 +14,7 @@
       {% csrf_token %}
       <button type="submit" class="btn btn-ghost">Generate all PDFs</button>
     </form>
-    <form method="post" action="{% url 'send_all' event.id %}" onsubmit="return confirm('Send certificates to all pending students?');">
+    <form method="post" action="{% url 'send_all' event.id %}" data-pending="{{ pending_to_send }}" onsubmit="return window.certifyGate(this);">
       {% csrf_token %}
       <button type="submit" class="btn btn-primary">Generate &amp; send all →</button>
     </form>
@@ -50,7 +50,7 @@
 {% endif %}
 
 <div class="table-card">
-  <table>
+  <table class="tbl-students">
     <thead>
       <tr>
         <th>#</th>
@@ -127,4 +127,14 @@ function toggleEditRow(studentId) {
 }
 </script>
 
+<script>
+function certifyGate(form) {
+  if (form.dataset.ok) return true;
+  window.certifyConfirmSend(parseInt(form.dataset.pending, 10) || 0, 'certificates').then(function (ok) {
+    if (ok) { form.dataset.ok = '1'; form.submit(); }
+  });
+  return false;
+}
+window.certifyGate = certifyGate;
+</script>
 {% endblock %}

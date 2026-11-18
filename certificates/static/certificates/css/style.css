@@ -696,13 +696,73 @@ tbody tr:hover { background: var(--accent-wash); }
   .position-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
-  .topbar { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 5vw; position: relative; z-index: 20; }
-  .topnav { flex-wrap: wrap; width: 100%; gap: 6px 4px; }
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .topbar { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--ink-900); position: sticky; top: 0; z-index: 20; flex-direction: row; align-items: center; gap: 8px; padding: 8px 4vw; }
+  .brand-logo { height: 40px; }
+  .top-right { gap: 8px; }
+  .theme-toggle { margin-left: 0; }
+  .nav-signin { padding: 9px 12px; font-size: 0.85rem; white-space: nowrap; }
   .nav-user { display: none; }
-  .brand-logo { height: 48px; }
-  .page { padding-top: 28px; }
-  .form-card { padding: 22px; }
+  .quota-wrap { position: static; }
+  .quota-pill { padding: 6px 10px; font-size: 0.78rem; }
+  .quota-pop { position: absolute; left: 12px; right: 12px; top: 100%; width: auto; }
+  /* main menu becomes a bottom tab bar, easy to reach with a thumb */
+  .topnav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--ink-900) 94%, transparent);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--ink-border);
+  }
+  .topnav a, .topnav .nav-link-btn, .topnav .nav-cta {
+    display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 8px 2px !important; min-height: 54px; border-radius: 12px;
+    font-size: 0.7rem; font-weight: 600; line-height: 1.1; text-align: center;
+    background: none; color: var(--text-mid) !important; border: 0;
+  }
+  .topnav .nav-cta { color: var(--accent-soft) !important; }
+  .topnav a:active, .topnav .nav-link-btn:active { background: var(--accent-wash); }
+  .topnav svg { width: 22px; height: 22px; }
+  .lbl-long { display: none; }
+  .brand-logo { height: 40px; }
+  .page { padding-top: 22px; }
+  .form-card { padding: 20px; }
   .choice-grid { grid-template-columns: 1fr; }
+  .section-head { flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 14px; }
+  .section-head h2 { font-size: 1.3rem; }
+  .footer { padding-bottom: 12px; }
+  .toolbar-actions { width: 100%; }
+  .toolbar-actions form, .toolbar-actions .btn { flex: 1 1 100%; }
+  .toolbar-actions .btn { width: 100%; justify-content: center; }
+  .cs-actions .btn { flex: 1; }
+
+  /* tables turn into cards: nothing hidden behind a sideways scroll */
+  .table-card { background: none; border: 0; overflow: visible; }
+  table { min-width: 0; display: block; }
+  table thead { display: none; }
+  table tbody { display: block; }
+  table tbody tr {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center;
+    background: var(--ink-800); border: 1px solid var(--ink-border); border-radius: 14px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  table tbody tr:hover { background: var(--ink-800); }
+  table tbody td { display: block; padding: 0; border: 0; }
+  .cell-sno { display: none !important; }
+  .cell-name { grid-column: 1; font-size: 1rem; }
+  .cell-email { grid-column: 1 / -1; grid-row: 2; word-break: break-all; }
+  .tbl-updates td:nth-child(4) { grid-column: 2; grid-row: 1; }
+  .tbl-updates td:nth-child(4) .muted { max-width: none !important; grid-column: 1 / -1; }
+  .tbl-students td:nth-child(4) { grid-column: 2; grid-row: 1; }
+  .tbl-students td:nth-child(5) { grid-column: 1 / -1; grid-row: 3; margin-top: 6px; }
+  .tbl-students td:nth-child(6) { grid-column: 1 / -1; grid-row: 4; text-align: left !important; margin-top: 8px; display: flex !important; gap: 8px; }
+  .tbl-students td:nth-child(6) form { display: block !important; flex: 1; }
+  .tbl-students td:nth-child(6) .btn { width: 100%; min-height: 40px; justify-content: center; }
+  .tbl-students td:nth-child(6) > .btn { flex: 1; }
+  table tbody tr.edit-row { display: block; padding: 0; background: none; border: 0; margin-top: -6px; }
+  .edit-row td { display: block; background: var(--ink-700); border-radius: 14px; padding: 14px; }
+  .inline-edit-form input[type=text], .inline-edit-form input[type=email] { min-width: 0; width: 100%; flex: 1 1 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
@@ -726,4 +786,25 @@ tbody tr:hover { background: var(--accent-wash); }
 .qp-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s ease; }
 .qp-line { font-size: 0.85rem; margin-top: 4px; }
 .qp-note { font-size: 0.76rem; color: var(--text-dim); margin: 10px 0 0; }
-@media (max-width: 760px) { .quota-wrap { position: static; } .quota-pop { position: absolute; left: 12px; right: 12px; top: 100%; width: auto; } }
+
+/* ---------------- confirm-before-send popup ---------------- */
+.cs-backdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(6, 10, 20, 0.6); }
+.cs-backdrop[hidden] { display: none; }
+.cs-modal { width: min(420px, 100%); padding: 24px; border-radius: 16px; background: var(--ink-800); border: 1px solid var(--accent); box-shadow: 0 24px 60px rgba(0,0,0,.45); color: var(--text); }
+.cs-modal h2 { margin: 0 0 10px; font-size: 1.25rem; color: var(--text-hi); }
+.cs-count { margin: 0 0 4px; }
+.cs-count b { font-size: 1.3rem; color: var(--text-hi); }
+.cs-msg { margin: 6px 0 0; font-size: 0.92rem; }
+.cs-msg[data-warn="1"] { color: #f4a3a3; }
+.cs-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+.top-right { display: flex; align-items: center; gap: 10px; }
+.nav-link-btn svg, .topnav a svg { display: none; }
+.lbl-short { display: none; }
+@media (max-width: 720px) { .nav-link-btn svg, .topnav a svg { display: block; } .lbl-short { display: inline; } }
+@media (max-width: 380px) {
+  .brand-logo { height: 34px; }
+  .nav-signin { padding: 8px 10px; font-size: 0.8rem; }
+  .top-right { gap: 6px; }
+  .quota-pill { padding: 6px 8px; font-size: 0.74rem; }
+}

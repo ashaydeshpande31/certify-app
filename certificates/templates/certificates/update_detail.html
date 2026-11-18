@@ -176,7 +176,7 @@
 </form>
 
 <div class="table-card">
-  <table>
+  <table class="tbl-updates">
     <thead>
       <tr>
         <th>#</th>
@@ -325,14 +325,9 @@
     }
   }
 
-  sendBtn.addEventListener('click', function () {
-    const left = {{ quota_left }}, pending = {{ pending_count }};
-    let msg = 'Send this update to everyone still pending? Mails go out from your own Gmail account.';
-    if (pending > left) {
-      msg = 'You have ' + pending + ' people waiting but only about ' + left + ' emails left in your Gmail limit right now.\n\n' +
-            'Sending will stop when Gmail refuses. The rest stay pending, and auto-continue (or pressing Send tomorrow) can finish them.\n\nSend anyway?';
-    }
-    if (confirm(msg)) run();
+  sendBtn.addEventListener('click', async function () {
+    const ok = await window.certifyConfirmSend({{ pending_count }}, 'this update');
+    if (ok) run();
   });
 
   if (retryBtn) {
