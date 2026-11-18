@@ -19,7 +19,6 @@ from email.header import Header
 from django.utils import timezone
 
 from .models import Student
-from . import update_utils as _uu
 
 FONT_PATHS = {
     "serif": {
@@ -412,6 +411,7 @@ def send_certificate_email(event, student, sender=None, service=None):
 
     Returns (ok, error_message).
     """
+    from . import update_utils as _uu  # imported here: update_utils imports this module
     subject = _uu.clean_subject(f"Your Certificate - {event.name}")
     body = _build_email_body(event, student, None, subject=subject)
     attachment_name = _safe_filename(student.name) + "_certificate.pdf"
@@ -444,13 +444,16 @@ def send_certificate_email(event, student, sender=None, service=None):
         return False, str(exc)
 
 
-def send_certificate_batch(event, sender, batch_size=_uu.BATCH_SIZE, budget=_uu.TIME_BUDGET_SECONDS, start=False):
+def send_certificate_batch(event, sender, batch_size=None, budget=None, start=False):
     """Send certificates to up to `batch_size` people, then return so the page
     can ask for the next batch (keeps every request short, so no 502).
 
     `start=True` first puts earlier failures back in the queue.
     Returns: sent, failed, remaining, stop, error.
     """
+    from . import update_utils as _uu  # imported here: update_utils imports this module
+    batch_size = batch_size or _uu.BATCH_SIZE
+    budget = budget or _uu.TIME_BUDGET_SECONDS
     started = time.monotonic()
     students = event.students
 
