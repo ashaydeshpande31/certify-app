@@ -1,10 +1,10 @@
 {% extends "certificates/base.html" %}
-{% block title %}New Event{% endblock %}
+{% block title %}Send certificates{% endblock %}
 {% block description %}Create an event, upload your certificate design and your participant list.{% endblock %}
 {% block content %}
 
 <div class="section-head">
-  <h2>Create a new event</h2>
+  <h2>Send certificates</h2>
 </div>
 
 <form class="form-card" method="post" enctype="multipart/form-data">
@@ -14,7 +14,7 @@
     <div class="field-error">{{ form.non_field_errors }}</div>
   {% endif %}
 
-  <label for="id_name">Event name</label>
+  <label for="id_name">Certificate name</label>
   {{ form.name }}
 
   <label for="id_organizer">Organizer <span class="muted">(optional)</span></label>
