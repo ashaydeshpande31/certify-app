@@ -198,8 +198,55 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
 
+FIT_MARGIN = 0.04  # keep names this far (share of the width) away from the edge
+MIN_FIT_SCALE = 0.25  # never shrink a name below 25% of the chosen size
+
+
+def max_text_width(event, image_width):
+    """Widest a name may be, given where it is placed and how it is aligned."""
+    x = image_width * (event.name_x_percent / 100.0)
+    margin = image_width * FIT_MARGIN
+    if event.text_align == "left":
+        room = image_width - x - margin
+    elif event.text_align == "right":
+        room = x - margin
+    else:
+        room = 2 * (min(x, image_width - x) - margin)
+    return max(room, image_width * 0.1)
+
+
+def fit_font(event, text, image_width, draw):
+    """Return (font, scale): the chosen font, shrunk until `text` fits."""
+    limit = max_text_width(event, image_width)
+    size = event.font_size
+    font = get_font(event, size)
+    width = draw.textlength(text, font=font)
+    if width <= limit:
+        return font, 1.0
+    min_size = max(8, int(event.font_size * MIN_FIT_SCALE))
+    while width > limit and size > min_size:
+        size = max(min_size, int(size * min(0.95, limit / width)))
+        font = get_font(event, size)
+        width = draw.textlength(text, font=font)
+    return font, size / event.font_size
+
+
+def name_needs_shrink(event, image_width, names):
+    """Names that will be drawn smaller than the chosen font size."""
+    from PIL import Image as _Image
+
+    draw = ImageDraw.Draw(_Image.new("RGB", (1, 1)))
+    out = []
+    for n in names:
+        _font, scale = fit_font(event, n, image_width, draw)
+        if scale < 0.999:
+            out.append((n, scale))
+    return out
+
+
 def render_certificate_image(event, student_name):
-    """Return a PIL Image with the student's name drawn onto the event template."""
+    """Return a PIL Image with the student's name drawn onto the event template.
+    Long names shrink so they stay inside the certificate."""
     event.template_image.open("rb")
     base = Image.open(event.template_image).convert("RGB")
     event.template_image.close()
@@ -210,7 +257,7 @@ def render_certificate_image(event, student_name):
     x = w * (event.name_x_percent / 100.0)
     y = h * (event.name_y_percent / 100.0)
 
-    font = get_font(event)
+    font, _scale = fit_font(event, student_name, w, draw)
     color = hex_to_rgb(event.font_color)
 
     anchor = {"left": "lm", "center": "mm", "right": "rm"}[event.text_align]

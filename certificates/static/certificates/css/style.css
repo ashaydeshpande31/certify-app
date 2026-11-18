@@ -825,3 +825,27 @@ tbody tr:hover { background: var(--accent-wash); }
 .dr-older { opacity: 0.85; margin-top: 8px; }
 .topnav a, .nav-link-btn { white-space: nowrap; }
 @media (max-width: 1180px) and (min-width: 721px) { .nav-user { display: none; } }
+
+/* ---------------- list check + typo fixes ---------------- */
+.list-check .lc-title { font-weight: 700; color: var(--text-hi); margin-bottom: 10px; }
+.lc-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.lc-stat { padding: 6px 12px; border-radius: 999px; background: var(--accent-wash); font-size: 0.88rem; color: var(--text); }
+.lc-stat b { color: var(--text-hi); }
+.lc-stat.is-warn { background: rgba(245, 185, 66, .15); color: #f5c76a; }
+.lc-stat.is-bad { background: rgba(240, 106, 106, .15); color: #f4a3a3; }
+.lc-details { margin-top: 12px; font-size: 0.88rem; }
+.lc-details summary { cursor: pointer; color: var(--accent-soft); font-weight: 600; }
+.lc-details ul { margin: 8px 0 0; padding-left: 18px; color: var(--text-mid); word-break: break-all; max-height: 200px; overflow: auto; }
+.is-typo { border-color: #f5b942; }
+.typo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.typo-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--ink-700); }
+.typo-list form { margin: 0; flex: none; }
+.typo-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 0.9rem; }
+.typo-name { font-weight: 600; color: var(--text-hi); }
+.typo-from { font-family: var(--mono); font-size: 0.8rem; color: #f4a3a3; text-decoration: line-through; word-break: break-all; }
+.typo-to { color: var(--text-mid); }
+.typo-to b { color: #7be0ae; font-weight: 600; word-break: break-all; }
+.shrunk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.88rem; }
+.shrunk-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 10px; background: var(--ink-700); }
+.shrunk-list b { color: #f5c76a; flex: none; }
+.longname-box { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--ink-border); }

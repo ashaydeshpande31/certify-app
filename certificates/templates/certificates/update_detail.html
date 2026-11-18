@@ -98,6 +98,60 @@
   </div>
 </div>
 
+{% if report %}
+<div class="form-card list-check" style="margin-bottom:24px; max-width:none;">
+  <div class="lc-title">List check</div>
+  <div class="lc-stats">
+    <span class="lc-stat"><b>{{ report.loaded }}</b> people loaded</span>
+    {% if report.dupe_n %}<span class="lc-stat is-warn"><b>{{ report.dupe_n }}</b> duplicate(s) skipped</span>{% endif %}
+    {% if report.bad_n %}<span class="lc-stat is-bad"><b>{{ report.bad_n }}</b> invalid email(s) skipped</span>{% endif %}
+    {% if typos %}<span class="lc-stat is-warn"><b>{{ typos|length }}</b> possible typo(s)</span>{% endif %}
+  </div>
+  {% if report.bad %}
+  <details class="lc-details"><summary>Invalid rows that were skipped</summary>
+    <ul>{% for x in report.bad %}<li>{{ x }}</li>{% endfor %}</ul>
+    {% if report.bad_n > 50 %}<p class="muted">…and {{ report.bad_n }} in total.</p>{% endif %}
+  </details>
+  {% endif %}
+  {% if report.dupes %}
+  <details class="lc-details"><summary>Duplicates that were skipped</summary>
+    <ul>{% for x in report.dupes %}<li>{{ x }}</li>{% endfor %}</ul>
+    {% if report.dupe_n > 50 %}<p class="muted">…and {{ report.dupe_n }} in total.</p>{% endif %}
+  </details>
+  {% endif %}
+  {% if not report.bad and not report.dupes and not typos %}<p class="muted" style="margin:8px 0 0;">Everything looks clean. Names were tidied (capital letters and spaces).</p>{% endif %}
+</div>
+{% endif %}
+
+{% if typos %}
+<div class="form-card list-check is-typo" style="margin-bottom:24px; max-width:none;">
+  <div class="lc-title">Possible typos in email addresses</div>
+  <p class="muted" style="margin:4px 0 12px;">These look like a misspelled mail provider. A wrong address bounces and that person never gets the update.</p>
+  <ul class="typo-list">
+    {% for t in typos %}
+    <li>
+      <div class="typo-text">
+        <span class="typo-name">{{ t.name }}</span>
+        <span class="typo-from">{{ t.email }}</span>
+        <span class="typo-to">Did you mean <b>{{ t.fix }}</b>?</span>
+      </div>
+      <form method="post" action="{% url 'update_fix_email' campaign.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="recipient_id" value="{{ t.id }}">
+        <button type="submit" class="btn btn-sm btn-primary">Fix</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if typos|length > 1 %}
+  <form method="post" action="{% url 'update_fix_email' campaign.id %}" style="margin-top:12px;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-ghost">Fix all {{ typos|length }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="form-card" style="margin-bottom:24px; max-width:none;">
   <label style="margin-top:0;">Gmail sending in the last 24 hours</label>
   <div style="font-size:1.05rem;"><b id="quota-used">{{ used_24h }}</b> of about {{ daily_limit }} emails</div>

@@ -8,7 +8,8 @@ from django.utils import timezone
 
 from .forms import EventCreateForm
 from .models import Event, Student, UpdateCampaign
-from .utils import parse_excel, generate_certificate_pdf, send_certificate_email
+from .email_tools import suggest_email, tidy_name
+from .utils import name_needs_shrink, parse_excel, generate_certificate_pdf, send_certificate_email
 
 
 def privacy_policy(request):
@@ -54,10 +55,33 @@ def create_event(request):
                     messages.error(request, "No valid student rows found in that Excel sheet.")
                     return redirect("create_event")
 
-                Student.objects.bulk_create(
-                    [Student(event=event, name=r["name"], email=r["email"]) for r in rows]
-                )
-                messages.success(request, f"Imported {len(rows)} students. Now position the name on your certificate.")
+                good, bad, dupes, seen = [], [], [], set()
+                for r in rows:
+                    name = tidy_name(r["name"])
+                    email = r["email"].strip()
+                    shown = f"{name} {email}".strip()
+                    try:
+                        validate_email(email)
+                    except DjangoValidationError:
+                        bad.append(shown)
+                        continue
+                    key = (name.lower(), email.lower())
+                    if not name or key in seen:
+                        (dupes if name else bad).append(shown)
+                        continue
+                    seen.add(key)
+                    good.append(Student(event=event, name=name, email=email))
+                if not good:
+                    event.delete()
+                    messages.error(request, "No valid student rows found in that Excel sheet.")
+                    return redirect("create_event")
+                Student.objects.bulk_create(good)
+                request.session[f"import_report_event_{event.id}"] = {
+                    "loaded": len(good),
+                    "bad": bad[:50], "bad_n": len(bad),
+                    "dupes": dupes[:50], "dupe_n": len(dupes),
+                }
+                messages.success(request, f"Imported {len(good)} students. Now position the name on your certificate.")
             else:
                 messages.success(request, "Event created! Now position the name on your certificate.")
             
@@ -83,14 +107,47 @@ def position_certificate(request, event_id):
         messages.success(request, "Certificate layout saved.")
         return redirect("student_list", event_id=event.id)
 
-    return render(request, "certificates/position_certificate.html", {"event": event})
+    names = list(event.students.values_list("name", flat=True))
+    longest = sorted(names, key=len, reverse=True)[:3]
+    return render(
+        request,
+        "certificates/position_certificate.html",
+        {"event": event, "longest_names": longest},
+    )
 
 
 @login_required
 def student_list(request, event_id):
     event = get_object_or_404(Event, id=event_id, owner=request.user)
     students = event.students.all()
-    return render(request, "certificates/student_list.html", {"event": event, "students": students})
+    pending_to_send = students.exclude(status="sent").count()
+    report = request.session.pop(f"import_report_event_{event.id}", None)
+    typos = []
+    for st in students.exclude(status="sent"):
+        fix = suggest_email(st.email)
+        if fix:
+            typos.append({"id": st.id, "name": st.name, "email": st.email, "fix": fix})
+    shrunk = []
+    if event.is_configured:
+        try:
+            width = event.template_image.width
+            shrunk = name_needs_shrink(event, width, [st.name for st in students.exclude(status="sent")])
+        except Exception:  # noqa: BLE001 - missing/unreadable template image
+            shrunk = []
+    shrunk = sorted(shrunk, key=lambda x: x[1])
+    return render(
+        request,
+        "certificates/student_list.html",
+        {
+            "event": event,
+            "students": students,
+            "pending_to_send": pending_to_send,
+            "report": report,
+            "typos": typos,
+            "shrunk_n": len(shrunk),
+            "shrunk": [{"name": n, "pct": round(sc * 100)} for n, sc in shrunk[:10]],
+        },
+    )
 
 
 @login_required
@@ -113,7 +170,7 @@ def add_quick_send_student(request, event_id):
         messages.error(request, "This event is not in quick-send mode.")
         return redirect("student_list", event_id=event.id)
 
-    name = request.POST.get("name", "").strip()
+    name = tidy_name(request.POST.get("name", ""))
     email = request.POST.get("email", "").strip()
 
     if not name:
@@ -138,7 +195,7 @@ def update_student(request, event_id, student_id):
     event = get_object_or_404(Event, id=event_id, owner=request.user)
     student = get_object_or_404(Student, id=student_id, event=event)
 
-    name = request.POST.get("name", "").strip()
+    name = tidy_name(request.POST.get("name", ""))
     email = request.POST.get("email", "").strip()
 
     if not name:
@@ -226,3 +283,30 @@ def delete_event(request, event_id):
 def verify_certificate(request, cert_id):
     student = get_object_or_404(Student, cert_id=cert_id)
     return render(request, "certificates/verify.html", {"student": student, "event": student.event})
+
+
+@login_required
+@require_POST
+def fix_student_email(request, event_id):
+    """Apply the suggested spelling to one student, or to everyone flagged."""
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    only = request.POST.get("student_id")
+    qs = event.students.exclude(status="sent")
+    if only:
+        qs = qs.filter(id=only)
+    fixed = 0
+    for st in qs:
+        fix = suggest_email(st.email)
+        if not fix:
+            continue
+        st.email = fix
+        if st.status == "failed":
+            st.status = "pending"
+            st.error_message = ""
+        st.save()
+        fixed += 1
+    if fixed:
+        messages.success(request, f"Fixed {fixed} email address(es).")
+    else:
+        messages.info(request, "Nothing to fix.")
+    return redirect("student_list", event_id=event.id)

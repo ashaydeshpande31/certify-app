@@ -23,6 +23,17 @@
       <h3>Name style</h3>
       <p class="muted" style="margin:0 0 16px;font-size:.85rem;">Adjust and watch the preview update.</p>
 
+      {% if longest_names %}
+      <div class="longname-box">
+        <label style="margin-top:0;">Try a long name</label>
+        <select id="sample_name">
+          <option value="Ashay Deshpande">Ashay Deshpande (sample)</option>
+          {% for n in longest_names %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+        </select>
+        <p class="muted" id="fit-note" style="font-size:.8rem;margin:6px 0 0;"></p>
+      </div>
+      {% endif %}
+
       <label>Font size</label>
       <input type="range" id="font_size" min="18" max="300" value="{{ event.font_size }}" style="width:100%;">
 
@@ -88,6 +99,7 @@ stage.addEventListener('click', function (e) {
   const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
   const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
   placeMarker(Math.max(0, Math.min(100, xPercent)), Math.max(0, Math.min(100, yPercent)));
+  updateMarkerFontSize();
 });
 
 const templateImg = document.getElementById('template-img');
@@ -97,9 +109,44 @@ function getPreviewScale() {
   return stage.getBoundingClientRect().width / templateImg.naturalWidth;
 }
 
+const sampleSelect = document.getElementById('sample_name');
+const fitNote = document.getElementById('fit-note');
+
+// Same rule as the server: a name may not run closer than 4% to the edge.
+function availableWidth(stageWidth) {
+  const x = stageWidth * (parseFloat(xField.value) / 100);
+  const margin = stageWidth * 0.04;
+  const align = alignHidden.value;
+  let room;
+  if (align === 'left') room = stageWidth - x - margin;
+  else if (align === 'right') room = x - margin;
+  else room = 2 * (Math.min(x, stageWidth - x) - margin);
+  return Math.max(room, stageWidth * 0.1);
+}
+
 function updateMarkerFontSize() {
   const scale = getPreviewScale();
-  marker.style.fontSize = (fontSizeSlider.value * scale) + 'px';
+  let size = fontSizeSlider.value * scale;
+  marker.style.fontSize = size + 'px';
+  const limit = availableWidth(stage.getBoundingClientRect().width);
+  const minSize = size * 0.4;
+  let guard = 0;
+  while (marker.scrollWidth > limit && size > minSize && guard++ < 60) {
+    size = Math.max(minSize, size * 0.95);
+    marker.style.fontSize = size + 'px';
+  }
+  const pct = Math.round((size / (fontSizeSlider.value * scale)) * 100);
+  if (fitNote) {
+    fitNote.textContent = pct < 100
+      ? 'This name is long, so it is drawn at ' + pct + '% size to stay inside the certificate.'
+      : 'This name fits at the full size.';
+  }
+}
+if (sampleSelect) {
+  sampleSelect.addEventListener('change', function () {
+    marker.textContent = this.value;
+    updateMarkerFontSize();
+  });
 }
 
 fontSizeSlider.addEventListener('input', function () {
@@ -117,6 +164,7 @@ window.addEventListener('resize', updateMarkerFontSize);
 fontChoice.addEventListener('change', function () {
   const map = { serif: "'Fraunces', serif", sans: "'Inter', sans-serif", script: "'Fraunces', serif" };
   marker.style.fontFamily = map[this.value];
+  updateMarkerFontSize();
 });
 marker.style.fontFamily = "'Fraunces', serif";
 
@@ -136,6 +184,7 @@ document.querySelectorAll('#align-toggle button').forEach(function (btn) {
     this.classList.add('active');
     alignHidden.value = this.dataset.align;
     marker.style.textAlign = this.dataset.align;
+    updateMarkerFontSize();
   });
 });
 </script>

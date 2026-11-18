@@ -23,6 +23,68 @@
 </div>
 
 
+{% if report %}
+<div class="form-card list-check" style="margin-bottom:24px; max-width:none;">
+  <div class="lc-title">List check</div>
+  <div class="lc-stats">
+    <span class="lc-stat"><b>{{ report.loaded }}</b> people loaded</span>
+    {% if report.dupe_n %}<span class="lc-stat is-warn"><b>{{ report.dupe_n }}</b> duplicate(s) skipped</span>{% endif %}
+    {% if report.bad_n %}<span class="lc-stat is-bad"><b>{{ report.bad_n }}</b> row(s) skipped (bad email or no name)</span>{% endif %}
+    {% if typos %}<span class="lc-stat is-warn"><b>{{ typos|length }}</b> possible typo(s)</span>{% endif %}
+  </div>
+  {% if report.bad %}
+  <details class="lc-details"><summary>Rows that were skipped</summary>
+    <ul>{% for x in report.bad %}<li>{{ x }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  {% if report.dupes %}
+  <details class="lc-details"><summary>Duplicates that were skipped</summary>
+    <ul>{% for x in report.dupes %}<li>{{ x }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  {% if not report.bad and not report.dupes and not typos %}<p class="muted" style="margin:8px 0 0;">Everything looks clean. Names were tidied (capital letters and spaces).</p>{% endif %}
+</div>
+{% endif %}
+
+{% if typos %}
+<div class="form-card list-check is-typo" style="margin-bottom:24px; max-width:none;">
+  <div class="lc-title">Possible typos in email addresses</div>
+  <p class="muted" style="margin:4px 0 12px;">These look like a misspelled mail provider. A wrong address bounces and that person never gets the certificate.</p>
+  <ul class="typo-list">
+    {% for t in typos %}
+    <li>
+      <div class="typo-text">
+        <span class="typo-name">{{ t.name }}</span>
+        <span class="typo-from">{{ t.email }}</span>
+        <span class="typo-to">Did you mean <b>{{ t.fix }}</b>?</span>
+      </div>
+      <form method="post" action="{% url 'fix_student_email' event.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="student_id" value="{{ t.id }}">
+        <button type="submit" class="btn btn-sm btn-primary">Fix</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if typos|length > 1 %}
+  <form method="post" action="{% url 'fix_student_email' event.id %}" style="margin-top:12px;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-ghost">Fix all {{ typos|length }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if shrunk_n %}
+<div class="form-card list-check" style="margin-bottom:24px; max-width:none;">
+  <div class="lc-title">{{ shrunk_n }} long name(s) will be made smaller to fit the certificate</div>
+  <p class="muted" style="margin:4px 0 8px;">The longest ones shrink automatically so they never run off the edge. If they look too small, move the name box or lower the font size under "edit layout".</p>
+  <ul class="shrunk-list">
+    {% for n in shrunk %}<li><span>{{ n.name }}</span><b>{{ n.pct }}% size</b></li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 <form method="post" action="{% url 'update_message' event.id %}" class="form-card" style="margin-bottom:24px;">
   {% csrf_token %}
   <label for="event-message">Personal message included with each certificate email</label>

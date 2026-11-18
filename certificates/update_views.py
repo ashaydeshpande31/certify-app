@@ -18,6 +18,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from .email_tools import suggest_email, tidy_name
 from .name_guess import guess_name_from_email
 from .models import Event, Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
 from .update_utils import (
@@ -32,6 +33,7 @@ from .update_utils import (
     AUTO_RESERVE,
     BATCH_SIZE,
     DAILY_LIMIT,
+    notify_owner_finished,
     quota_info,
     sent_last_24h,
 )
@@ -61,27 +63,30 @@ def _parse_pasted(text):
 
 
 def _clean_recipients(rows):
-    """Validate emails and drop duplicates (same email twice = one mail)."""
-    good, skipped_bad, skipped_dupe = [], 0, 0
+    """Validate emails, tidy names and drop duplicates (same email twice = one mail).
+    Returns (good, bad_rows, duplicate_rows); the last two are short text
+    descriptions used for the import report."""
+    good, bad, dupes = [], [], []
     seen = set()
     for row in rows:
-        name = (row.get("name") or "").strip()
+        name = tidy_name(row.get("name") or "")
         email = (row.get("email") or "").strip()
+        shown = (name + " " if name else "") + (email or "(no email)")
         try:
             validate_email(email)
         except DjangoValidationError:
-            skipped_bad += 1
+            bad.append(shown)
             continue
         if len(email) > 254:
-            skipped_bad += 1
+            bad.append(shown)
             continue
         key = email.lower()
         if key in seen:
-            skipped_dupe += 1
+            dupes.append(shown)
             continue
         seen.add(key)
         good.append({"name": (name or guess_name_from_email(email))[:200], "email": email})
-    return good, skipped_bad, skipped_dupe
+    return good, bad, dupes
 
 
 @login_required
@@ -136,7 +141,7 @@ def update_create(request):
 
     if not errors:
         rows = rows + _parse_pasted(pasted_text)
-    recipients, skipped_bad, skipped_dupe = _clean_recipients(rows)
+    recipients, bad_rows, dupe_rows = _clean_recipients(rows)
     if not errors:
         if not recipients:
             errors.append("No valid email addresses were found.")
@@ -167,12 +172,12 @@ def update_create(request):
                 size=len(data),
             )
 
-    note = f"Loaded {len(recipients)} recipient(s)."
-    if skipped_dupe:
-        note += f" {skipped_dupe} duplicate email(s) skipped."
-    if skipped_bad:
-        note += f" {skipped_bad} row(s) skipped (invalid email)."
-    messages.success(request, note + " Review below, then send.")
+    request.session[f"import_report_{campaign.id}"] = {
+        "bad": bad_rows[:50], "bad_n": len(bad_rows),
+        "dupes": dupe_rows[:50], "dupe_n": len(dupe_rows),
+        "loaded": len(recipients),
+    }
+    messages.success(request, f"Loaded {len(recipients)} recipient(s). Check the summary below, then send.")
     return redirect("update_detail", campaign_id=campaign.id)
 
 
@@ -181,10 +186,18 @@ def update_detail(request, campaign_id):
     campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
     used = sent_last_24h(request.user)
     left = max(DAILY_LIMIT - used, 0)
+    report = request.session.pop(f"import_report_{campaign.id}", None)
+    typos = []
+    for r in campaign.recipients.exclude(status="sent"):
+        fix = suggest_email(r.email)
+        if fix:
+            typos.append({"id": r.id, "name": r.name, "email": r.email, "fix": fix})
     return render(
         request,
         "certificates/update_detail.html",
         {
+            "report": report,
+            "typos": typos,
             "used_24h": used,
             "daily_limit": DAILY_LIMIT,
             "quota_left": left,
@@ -222,7 +235,7 @@ def update_edit(request, campaign_id):
 @require_POST
 def update_add_recipient(request, campaign_id):
     campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
-    name = request.POST.get("name", "").strip()
+    name = tidy_name(request.POST.get("name", ""))
     email = request.POST.get("email", "").strip()
     try:
         validate_email(email)
@@ -321,6 +334,8 @@ def cron_continue(request):
         if remaining == 0:
             c.auto_continue = False
             c.auto_status = "Finished. Everyone has been sent this update."
+            if sent_now and notify_owner_finished(c):
+                c.auto_status += " A short email was sent to you."
         elif status:
             c.auto_status = status[:200]
         elif allowed <= 0:
@@ -439,3 +454,36 @@ def delivery_search(request):
 def quota_status(request):
     """Small JSON used by the quota pill in the top bar."""
     return JsonResponse(quota_info(request.user))
+
+
+@login_required
+@require_POST
+def update_fix_email(request, campaign_id):
+    """Apply the suggested spelling to one person, or to everyone flagged."""
+    campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
+    only = request.POST.get("recipient_id")
+    qs = campaign.recipients.exclude(status="sent")
+    if only:
+        qs = qs.filter(id=only)
+    fixed = removed = 0
+    for r in qs:
+        fix = suggest_email(r.email)
+        if not fix:
+            continue
+        if campaign.recipients.filter(email__iexact=fix).exclude(id=r.id).exists():
+            r.delete()  # the corrected address is already on the list
+            removed += 1
+            continue
+        r.email = fix
+        r.status = "pending"
+        r.error_message = ""
+        r.save(update_fields=["email", "status", "error_message", "updated_at"])
+        fixed += 1
+    if fixed or removed:
+        note = f"Fixed {fixed} email address(es)."
+        if removed:
+            note += f" {removed} duplicate(s) removed because the corrected address was already listed."
+        messages.success(request, note)
+    else:
+        messages.info(request, "Nothing to fix.")
+    return redirect("update_detail", campaign_id=campaign.id)

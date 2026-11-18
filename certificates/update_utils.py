@@ -163,6 +163,49 @@ def quota_info(user):
     }
 
 
+def notify_owner_finished(campaign):
+    """Tell the organiser (by email, from their own Gmail to their own address)
+    that auto-continue has finished. Never raises: a missed notice must not
+    break sending."""
+    try:
+        owner = campaign.owner
+        to_email = (owner.email or "").strip()
+        if not to_email:
+            return False
+        total = campaign.recipients.count()
+        sent = campaign.recipients.filter(status="sent").count()
+        failed = campaign.recipients.filter(status="failed").count()
+        if failed:
+            subject = f"{campaign.subject}: {sent} of {total} sent, {failed} failed"
+        else:
+            subject = f"{campaign.subject}: all {sent} sent"
+        lines = [
+            f'Your update "{campaign.subject}" has finished sending.',
+            "",
+            f"Sent: {sent} of {total}",
+        ]
+        if failed:
+            lines += [
+                f"Failed: {failed}",
+                "",
+                "Open the update in Certify and use \"Retry failed\" after fixing the addresses "
+                "(look for red rows or the \"Possible typos\" box).",
+            ]
+        else:
+            lines += ["", "Everyone on your list has it."]
+        body = "\n".join(lines)
+        service = _get_gmail_service(owner)
+        if service is not None:
+            _send_via_gmail_api(service, to_email, clean_subject(subject), body, [])
+            return True
+        if _smtp_configured():
+            _send_via_smtp(to_email, clean_subject(subject), body, [])
+            return True
+    except Exception:  # noqa: BLE001
+        return False
+    return False
+
+
 def send_update_batch(campaign, sender, batch_size=BATCH_SIZE, budget=TIME_BUDGET_SECONDS):
     """Send the update to up to `batch_size` pending recipients.
 
