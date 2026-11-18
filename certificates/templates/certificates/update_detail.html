@@ -10,6 +10,7 @@
     <span class="muted" id="summary-line">{{ total }} people · {{ sent_count }} sent · {{ pending_count }} to send{% if failed_count %} · {{ failed_count }} failed{% endif %}</span>
   </div>
   <div class="toolbar-actions">
+    <button type="button" class="btn btn-ghost" data-check-kind="update" data-check-id="{{ campaign.id }}" data-check-title="{{ campaign.subject }}">Check who got it</button>
     {% if failed_count %}
       <button type="button" class="btn btn-ghost" id="retry-btn">Retry {{ failed_count }} failed</button>
     {% endif %}

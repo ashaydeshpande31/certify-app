@@ -808,3 +808,20 @@ tbody tr:hover { background: var(--accent-wash); }
   .top-right { gap: 6px; }
   .quota-pill { padding: 6px 8px; font-size: 0.74rem; }
 }
+
+/* ---------------- scoped delivery check ---------------- */
+.card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.card-actions form { margin: 0; }
+.dr-scope { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; margin-bottom: 10px; border-radius: 10px; background: var(--accent-wash); border: 1px solid var(--accent); font-size: 0.85rem; color: var(--text-hi); }
+.dr-scope[hidden], .dr-counts[hidden] { display: none; }
+.dr-scope-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.dr-scope-all { flex: none; background: none; border: 0; color: var(--accent-soft); font: inherit; font-weight: 600; cursor: pointer; padding: 4px; }
+.dr-counts { font-size: 0.85rem; color: var(--text-mid); margin-bottom: 10px; }
+.dr-group { margin-bottom: 10px; }
+.dr-group .dr-item { margin-bottom: 0; }
+.dr-more { background: none; border: 0; color: var(--accent-soft); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 6px 4px; }
+.dr-olderbox { margin-left: 12px; padding-left: 10px; border-left: 2px solid var(--ink-border); }
+.dr-olderbox[hidden] { display: none; }
+.dr-older { opacity: 0.85; margin-top: 8px; }
+.topnav a, .nav-link-btn { white-space: nowrap; }
+@media (max-width: 1180px) and (min-width: 721px) { .nav-user { display: none; } }

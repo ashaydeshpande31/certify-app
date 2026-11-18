@@ -10,6 +10,7 @@
     <span class="muted">{{ event.total_students }} students · {{ event.sent_count }} sent · <a href="{% url 'position_certificate' event.id %}" style="color:var(--gold-300);">edit layout</a></span>
   </div>
   <div class="toolbar-actions">
+    <button type="button" class="btn btn-ghost" data-check-kind="certificate" data-check-id="{{ event.id }}" data-check-title="{{ event.name }}">Check who got it</button>
     <form method="post" action="{% url 'generate_all' event.id %}">
       {% csrf_token %}
       <button type="submit" class="btn btn-ghost">Generate all PDFs</button>

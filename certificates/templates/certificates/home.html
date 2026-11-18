@@ -95,10 +95,13 @@
         <span class="seal-badge seal-pending"><span class="dot"></span> Needs layout</span>
       {% endif %}
     </a>
-    <form method="post" action="{% url 'delete_event' event.id %}" onsubmit="return confirm('Delete this event and all its certificates? This cannot be undone.');" style="margin-top:12px;">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-sm btn-danger">Delete event</button>
-    </form>
+    <div class="card-actions">
+      {% if event.is_configured %}<button type="button" class="btn btn-sm btn-ghost" data-check-kind="certificate" data-check-id="{{ event.id }}" data-check-title="{{ event.name }}">Check delivery</button>{% endif %}
+      <form method="post" action="{% url 'delete_event' event.id %}" onsubmit="return confirm('Delete this event and all its certificates? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-danger">Delete event</button>
+      </form>
+    </div>
   </div>
   {% endfor %}
 </div>
@@ -131,10 +134,13 @@
         <span class="seal-badge seal-sent"><span class="dot"></span> All sent</span>
       {% endif %}
     </a>
-    <form method="post" action="{% url 'update_delete' campaign.id %}" onsubmit="return confirm('Delete this update and its recipient list? This cannot be undone.');" style="margin-top:12px;">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-sm btn-danger">Delete update</button>
-    </form>
+    <div class="card-actions">
+      <button type="button" class="btn btn-sm btn-ghost" data-check-kind="update" data-check-id="{{ campaign.id }}" data-check-title="{{ campaign.subject }}">Check delivery</button>
+      <form method="post" action="{% url 'update_delete' campaign.id %}" onsubmit="return confirm('Delete this update and its recipient list? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-danger">Delete update</button>
+      </form>
+    </div>
   </div>
   {% endfor %}
 </div>

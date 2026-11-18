@@ -77,6 +77,11 @@
     <button type="button" class="drawer-close" id="drawer-close" aria-label="Close">&times;</button>
   </div>
   <p class="drawer-hint">Type a name or email to see whether that person got your update or certificate.</p>
+  <div class="dr-scope" id="drawer-scope" hidden>
+    <span class="dr-scope-text" id="drawer-scope-text"></span>
+    <button type="button" class="dr-scope-all" id="drawer-scope-all">Search all</button>
+  </div>
+  <div class="dr-counts" id="drawer-counts" hidden></div>
   <input type="search" id="drawer-q" class="drawer-input" placeholder="Name or email" autocomplete="off">
   <div class="drawer-results" id="drawer-results" aria-live="polite"></div>
   <p class="drawer-foot">"Sent" means Gmail accepted the mail. If an address doesn't exist, Gmail usually puts a "Delivery Status Notification" bounce message in your own inbox.</p>
@@ -90,6 +95,9 @@
   const closeBtn = document.getElementById('drawer-close');
   const input = document.getElementById('drawer-q');
   const results = document.getElementById('drawer-results');
+  const scopeBar = document.getElementById('drawer-scope');
+  const scopeText = document.getElementById('drawer-scope-text');
+  const counts = document.getElementById('drawer-counts');
   const url = "{% url 'delivery_search' %}";
   const STATUS = {
     sent: ['seal-sent', 'Sent'],
@@ -98,7 +106,7 @@
     sending: ['seal-pending', 'Sending now'],
     generated: ['seal-generated', 'Certificate ready, not emailed']
   };
-  let timer = null, seq = 0;
+  let timer = null, seq = 0, scope = null, lastFocus = null;
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -108,67 +116,135 @@
   }
   function note(text) { results.replaceChildren(el('p', 'dr-empty', text)); }
 
-  function openDrawer() {
+  function applyScope() {
+    if (scope) {
+      scopeBar.hidden = false;
+      scopeText.textContent = 'Only in: ' + scope.title;
+      input.placeholder = 'Find a name or email in this ' + (scope.kind === 'update' ? 'update' : 'event');
+    } else {
+      scopeBar.hidden = true;
+      counts.hidden = true;
+      input.placeholder = 'Name or email';
+    }
+  }
+  function openDrawer(sc) {
+    lastFocus = document.activeElement;
+    scope = sc || null;
+    input.value = '';
+    results.replaceChildren();
+    applyScope();
     drawer.classList.add('open');
     drawer.setAttribute('aria-hidden', 'false');
     backdrop.hidden = false;
     document.body.style.overflow = 'hidden';
-    setTimeout(function () { input.focus(); }, 60);
+    if (scope) { search(''); } else { setTimeout(function () { input.focus(); }, 60); }
   }
   function closeDrawer() {
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
     backdrop.hidden = true;
     document.body.style.overflow = '';
-    openBtn.focus();
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
-  function render(list, q) {
-    if (!list.length) { note('No one matching "' + q + '" in your updates or certificates.'); return; }
-    results.replaceChildren();
-    list.forEach(function (r) {
-      const card = el('div', 'dr-item');
-      card.appendChild(el('div', 'dr-name', r.name));
-      card.appendChild(el('div', 'dr-email', r.email));
-      const line = el('div', 'dr-line');
-      const st = STATUS[r.status] || ['seal-pending', r.status];
-      const badge = el('span', 'seal-badge ' + st[0]);
-      badge.appendChild(el('span', 'dot'));
-      badge.appendChild(document.createTextNode(' ' + st[1]));
-      line.appendChild(badge);
-      if (r.when) {
-        const d = new Date(r.when);
-        line.appendChild(el('span', 'dr-time', d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })));
-      }
-      card.appendChild(line);
+  function card(r, small) {
+    const c = el('div', 'dr-item' + (small ? ' dr-older' : ''));
+    c.appendChild(el('div', 'dr-name', r.name));
+    c.appendChild(el('div', 'dr-email', r.email));
+    const line = el('div', 'dr-line');
+    const st = STATUS[r.status] || ['seal-pending', r.status];
+    const badge = el('span', 'seal-badge ' + st[0]);
+    badge.appendChild(el('span', 'dot'));
+    badge.appendChild(document.createTextNode(' ' + st[1]));
+    line.appendChild(badge);
+    if (r.when) {
+      const d = new Date(r.when);
+      line.appendChild(el('span', 'dr-time', d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })));
+    }
+    c.appendChild(line);
+    if (!scope) {
       const link = el('a', 'dr-title', (r.kind === 'update' ? 'Update: ' : 'Certificate: ') + r.title);
       link.href = r.url;
-      card.appendChild(link);
-      if (r.status === 'failed' && r.error) card.appendChild(el('div', 'dr-error', r.error));
-      results.appendChild(card);
+      c.appendChild(link);
+    }
+    if (r.status === 'failed' && r.error) c.appendChild(el('div', 'dr-error', r.error));
+    return c;
+  }
+
+  function render(data, q) {
+    const list = data.results || [];
+    if (scope && data.scope && data.scope.counts) {
+      const k = data.scope.counts;
+      counts.hidden = false;
+      counts.textContent = k.sent + ' of ' + k.total + ' got it' + (k.failed ? ' · ' + k.failed + ' failed' : '') + (k.pending ? ' · ' + k.pending + ' waiting' : '');
+    }
+    if (!list.length) {
+      note(q ? 'No one matching "' + q + '"' + (scope ? ' in this ' + (scope.kind === 'update' ? 'update' : 'event') + '.' : ' in your updates or certificates.') : 'No people in this list yet.');
+      return;
+    }
+    results.replaceChildren();
+    if (scope) {
+      list.forEach(function (r) { results.appendChild(card(r, false)); });
+      return;
+    }
+    // everything: newest result per person first, older ones tucked away
+    const groups = new Map();
+    list.forEach(function (r) {
+      const key = r.email.toLowerCase();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    });
+    groups.forEach(function (items) {
+      const wrap = el('div', 'dr-group');
+      wrap.appendChild(card(items[0], false));
+      if (items.length > 1) {
+        const older = el('div', 'dr-olderbox');
+        older.hidden = true;
+        items.slice(1).forEach(function (r) { older.appendChild(card(r, true)); });
+        const btn = el('button', 'dr-more', 'Show ' + (items.length - 1) + ' earlier');
+        btn.type = 'button';
+        btn.addEventListener('click', function () {
+          older.hidden = !older.hidden;
+          btn.textContent = older.hidden ? 'Show ' + (items.length - 1) + ' earlier' : 'Hide earlier';
+        });
+        wrap.appendChild(btn);
+        wrap.appendChild(older);
+      }
+      results.appendChild(wrap);
     });
   }
 
   async function search(q) {
     const mine = ++seq;
+    let u = url + '?q=' + encodeURIComponent(q);
+    if (scope) u += '&kind=' + scope.kind + '&id=' + scope.id;
     try {
-      const resp = await fetch(url + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
+      const resp = await fetch(u, { credentials: 'same-origin' });
       if (!resp.ok) throw new Error('bad status');
       const data = await resp.json();
-      if (mine === seq) render(data.results, q);
+      if (mine === seq) render(data, q);
     } catch (e) {
       if (mine === seq) note('Could not search right now. Check your connection and try again.');
     }
   }
 
-  openBtn.addEventListener('click', openDrawer);
+  openBtn.addEventListener('click', function () { openDrawer(null); });
+  document.addEventListener('click', function (e) {
+    const b = e.target.closest ? e.target.closest('[data-check-kind]') : null;
+    if (!b) return;
+    e.preventDefault();
+    openDrawer({ kind: b.dataset.checkKind, id: b.dataset.checkId, title: b.dataset.checkTitle || '' });
+  });
+  document.getElementById('drawer-scope-all').addEventListener('click', function () {
+    scope = null; input.value = ''; results.replaceChildren(); applyScope(); input.focus();
+  });
   closeBtn.addEventListener('click', closeDrawer);
   backdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drawer.classList.contains('open')) closeDrawer(); });
   input.addEventListener('input', function () {
     clearTimeout(timer);
     const q = input.value.trim();
-    if (q.length < 2) { seq++; results.replaceChildren(); return; }
+    if (!scope && q.length < 2) { seq++; results.replaceChildren(); return; }
     timer = setTimeout(function () { search(q); }, 250);
   });
 })();

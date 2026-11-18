@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from .models import Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
+from .models import Event, Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
 from .update_utils import (
     ALLOWED_ATTACHMENT_EXTENSIONS,
     MAX_ATTACHMENTS,
@@ -357,45 +357,81 @@ def update_delete(request, campaign_id):
 
 @login_required
 def delivery_search(request):
-    """Powers the "Check delivery" side panel: find a person by name or email
-    and say whether each update / certificate mail to them went out."""
+    """Powers the "Check delivery" side panel.
+
+    Without a scope it searches everything the user ever sent (newest first).
+    With ?kind=update|certificate&id=N it only looks inside that one update or
+    event, and with no search text it lists the people who did NOT get it
+    first (failed, then waiting), then the rest.
+    """
     q = request.GET.get("q", "").strip()
-    if len(q) < 2:
+    kind = request.GET.get("kind", "")
+    try:
+        scope_id = int(request.GET.get("id", ""))
+    except ValueError:
+        scope_id = None
+    scoped = kind in ("update", "certificate") and scope_id is not None
+
+    def match(qs):
+        return qs.filter(Q(email__icontains=q) | Q(name__icontains=q)) if q else qs
+
+    if not scoped and len(q) < 2:
         return JsonResponse({"results": []})
 
     rows = []
-    updates = (
-        UpdateRecipient.objects.filter(campaign__owner=request.user)
-        .filter(Q(email__icontains=q) | Q(name__icontains=q))
-        .select_related("campaign")
-        .order_by("-updated_at")[:30]
-    )
-    for r in updates:
-        rows.append({
-            "kind": "update", "name": r.name, "email": r.email, "title": r.campaign.subject,
-            "status": r.status, "error": r.error_message, "stamp": r.updated_at,
-            "url": reverse("update_detail", args=[r.campaign_id]),
-        })
-    certs = (
-        Student.objects.filter(event__owner=request.user)
-        .filter(Q(email__icontains=q) | Q(name__icontains=q))
-        .select_related("event")
-        .order_by("-updated_at")[:30]
-    )
-    for s in certs:
-        rows.append({
-            "kind": "certificate", "name": s.name, "email": s.email, "title": s.event.name,
-            "status": s.status, "error": s.error_message, "stamp": s.updated_at,
-            "url": reverse("student_list", args=[s.event_id]),
-        })
+    scope_title = None
+    counts = None
+    if not scoped or kind == "update":
+        base = UpdateRecipient.objects.filter(campaign__owner=request.user)
+        if scoped:
+            base = base.filter(campaign_id=scope_id)
+        for r in match(base).select_related("campaign").order_by("-updated_at")[:200 if scoped else 30]:
+            scope_title = r.campaign.subject
+            rows.append({
+                "kind": "update", "name": r.name, "email": r.email, "title": r.campaign.subject,
+                "status": r.status, "error": r.error_message, "stamp": r.updated_at,
+                "url": reverse("update_detail", args=[r.campaign_id]),
+            })
+        if scoped:
+            camp = UpdateCampaign.objects.filter(id=scope_id, owner=request.user).first()
+            if camp:
+                scope_title = camp.subject
+                counts = {"total": camp.total, "sent": camp.sent_count, "failed": camp.failed_count, "pending": camp.pending_count}
+    if not scoped or kind == "certificate":
+        base = Student.objects.filter(event__owner=request.user)
+        if scoped:
+            base = base.filter(event_id=scope_id)
+        for st in match(base).select_related("event").order_by("-updated_at")[:200 if scoped else 30]:
+            scope_title = st.event.name
+            rows.append({
+                "kind": "certificate", "name": st.name, "email": st.email, "title": st.event.name,
+                "status": st.status, "error": st.error_message, "stamp": st.updated_at,
+                "url": reverse("student_list", args=[st.event_id]),
+            })
+        if scoped:
+            ev = Event.objects.filter(id=scope_id, owner=request.user).first()
+            if ev:
+                scope_title = ev.name
+                total = ev.students.count()
+                sent = ev.students.filter(status="sent").count()
+                failed = ev.students.filter(status="failed").count()
+                counts = {"total": total, "sent": sent, "failed": failed, "pending": total - sent - failed}
 
-    rows.sort(key=lambda x: x["stamp"], reverse=True)
-    rows = rows[:40]
+    if scoped and not q:
+        # people who did not get it come first
+        order = {"failed": 0, "pending": 1, "sending": 1, "generated": 1, "sent": 2}
+        rows.sort(key=lambda x: (order.get(x["status"], 3), x["name"].lower()))
+    else:
+        rows.sort(key=lambda x: x["stamp"], reverse=True)
+    rows = rows[:60 if scoped else 40]
     for x in rows:
         stamp = x.pop("stamp")
         # pending rows were never mailed, so their time means nothing
         x["when"] = stamp.isoformat() if x["status"] in ("sent", "failed", "generated") else None
-    return JsonResponse({"results": rows})
+    out = {"results": rows}
+    if scoped:
+        out["scope"] = {"title": scope_title, "counts": counts}
+    return JsonResponse(out)
 
 
 @login_required
