@@ -2,6 +2,7 @@
 Name/Email list, optionally attach a poster/photos, and mail everyone."""
 
 import os
+import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -25,6 +26,27 @@ from .update_utils import (
 from .utils import parse_excel
 
 LIST_EXTENSIONS = (".xlsx", ".xls", ".csv", ".pdf")
+
+
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+
+def _parse_pasted(text):
+    """One person per line. Accepts 'email', 'Name, email', 'Name - email',
+    'Name email' or 'email, Name'. Several emails on one line also work."""
+    rows = []
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        found = list(_EMAIL_RE.finditer(line))
+        if len(found) == 1:
+            m = found[0]
+            name = (line[: m.start()] + " " + line[m.end():]).strip(" -,;|\t<>()")
+            rows.append({"name": re.sub(r"\s{2,}", " ", name), "email": m.group(0)})
+        else:
+            rows.extend({"name": "", "email": m.group(0)} for m in found)
+    return rows
 
 
 def _clean_recipients(rows):
@@ -63,17 +85,18 @@ def update_create(request):
     subject = clean_subject(request.POST.get("subject", ""))
     message = request.POST.get("message", "").replace("\r\n", "\n").strip()
     list_file = request.FILES.get("recipients_file")
+    pasted_text = request.POST.get("pasted_emails", "")
     attach_files = [f for f in request.FILES.getlist("attachments") if f and f.name]
-    context.update({"subject": subject, "message": message})
+    context.update({"subject": subject, "message": message, "pasted_emails": pasted_text})
 
     errors = []
     if not subject:
         errors.append("Please add a subject line.")
     if not message:
         errors.append("Please write the message you want people to receive.")
-    if not list_file:
-        errors.append("Please upload a file with your recipients' names and emails.")
-    elif not list_file.name.lower().endswith(LIST_EXTENSIONS):
+    if not list_file and not pasted_text.strip():
+        errors.append("Please upload a recipient file, or type/paste at least one email address.")
+    elif list_file and not list_file.name.lower().endswith(LIST_EXTENSIONS):
         errors.append("The recipient list must be a .xlsx, .xls, .csv or .pdf file.")
 
     if len(attach_files) > MAX_ATTACHMENTS:
@@ -95,10 +118,12 @@ def update_create(request):
         except Exception:  # noqa: BLE001 - corrupt / unreadable file
             errors.append("We couldn't read that file. Please upload a valid .xlsx, .xls, .csv or .pdf list.")
 
+    if not errors:
+        rows = rows + _parse_pasted(pasted_text)
     recipients, skipped_bad, skipped_dupe = _clean_recipients(rows)
-    if list_file and not errors:
+    if not errors:
         if not recipients:
-            errors.append("No valid Name + Email rows were found in that file.")
+            errors.append("No valid email addresses were found.")
         elif len(recipients) > MAX_RECIPIENTS:
             errors.append(f"That list has {len(recipients)} people — the limit per update is {MAX_RECIPIENTS}.")
 

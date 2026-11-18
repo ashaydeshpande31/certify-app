@@ -16,14 +16,18 @@
   <textarea id="id_message" name="message" rows="12" placeholder="Write the mail exactly as you want people to read it." required>{{ message }}</textarea>
   <div class="help-text">Every person receives this text exactly as you write it here — nothing is added before or after. Want to greet each person by name? Type <b>{name}</b> where the name should go, e.g. "Hi {name},".</div>
 
-  <label>Recipient list</label>
+  <label>Recipient list <span class="muted">(file — or type emails below)</span></label>
   <div class="file-drop">
-    <input type="file" id="id_recipients_file" name="recipients_file" accept=".xlsx,.xls,.csv,.pdf" required>
+    <input type="file" id="id_recipients_file" name="recipients_file" accept=".xlsx,.xls,.csv,.pdf">
     <div class="file-drop-label">Drop your list here, or click to browse</div>
     <div class="file-drop-sub">.xlsx, .csv or .pdf — first row must have "Name" and "Email" column headers</div>
   </div>
   <div id="list-file-error" class="field-error" style="display:none;"></div>
   <div class="help-text">Duplicate emails are sent only once, and rows with an invalid email are skipped.</div>
+
+  <label for="id_pasted_emails">Or type / paste emails <span class="muted">(optional)</span></label>
+  <textarea id="id_pasted_emails" name="pasted_emails" rows="5" placeholder="one person per line, e.g.&#10;Ashay Deshpande, ashay@gmail.com&#10;friend@gmail.com">{{ pasted_emails }}</textarea>
+  <div class="help-text">Use this alone, or together with a file — both lists are combined. A name is optional; just an email works too.</div>
 
   <label>Poster or photos <span class="muted">(optional)</span></label>
   <div class="file-drop">
