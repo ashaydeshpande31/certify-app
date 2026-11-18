@@ -3,75 +3,27 @@
 {% block content %}
 
 {% if user.is_authenticated %}
-<style>
-  .choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }
-  .choice-card {
-    display: block; color: inherit; text-decoration: none;
-    background: var(--ink-800); border: 1px solid var(--ink-border);
-    border-radius: 16px; padding: 28px;
-    transition: border-color .15s, transform .15s;
-  }
-  .choice-card:hover { border-color: var(--gold-500); transform: translateY(-2px); }
-  .choice-card .choice-icon { font-size: 1.8rem; margin-bottom: 12px; }
-  .choice-card h3 { font-family: var(--display); font-size: 1.3rem; margin: 0 0 8px; }
-  .choice-card p { color: var(--text-mid); font-size: 0.92rem; margin: 0 0 16px; }
-  .choice-card .choice-go { color: var(--gold-300); font-weight: 600; font-size: 0.9rem; }
-</style>
+
 <div class="section-head">
-  <h2>What do you want to do?</h2>
+  <h2>What do you want to send?</h2>
 </div>
 <div class="choice-grid">
   <a href="{% url 'create_event' %}" class="choice-card">
-    <div class="choice-icon">🎓</div>
-    <h3>Send certificates</h3>
-    <p>Upload a participant sheet and a certificate design. Every person gets their own certificate with their name on it.</p>
-    <span class="choice-go">Create a certificate event →</span>
+    <div class="tile-art" aria-hidden="true">
+      <div class="art-cert"><i class="t"></i><i class="n"></i><i class="s"></i></div>
+    </div>
+    <h3>Certificates</h3>
+    <p>Put every name on your certificate design and email each person their own PDF.</p>
+    <span class="btn btn-primary btn-sm">Create an event</span>
   </a>
   <a href="{% url 'update_create' %}" class="choice-card">
-    <div class="choice-icon">📣</div>
-    <h3>Send updates</h3>
-    <p>Write one message, upload a Name + Email list, and mail it to everyone — with a poster or photos if you want (optional).</p>
-    <span class="choice-go">Write an update →</span>
+    <div class="tile-art" aria-hidden="true">
+      <div class="art-mail"><span></span></div>
+    </div>
+    <h3>Updates</h3>
+    <p>Write one message and mail it to everyone on your list. Add a poster or photos if you like.</p>
+    <span class="btn btn-primary btn-sm">Write an update</span>
   </a>
-</div>
-{% endif %}
-
-<section class="hero">
-  <div>
-    <div class="hero-eyebrow">Excel in → Certificates out</div>
-    <h1>Stop making certificates <em>by hand</em>, one student at a time.</h1>
-    <p>Upload your participant sheet and a certificate template once. Every student's name gets placed automatically, and their personal certificate lands straight in their inbox — ready to download and post on LinkedIn.</p>
-    {% if user.is_authenticated %}
-      <a href="{% url 'create_event' %}" class="btn btn-primary">Create your first event →</a>
-    {% else %}
-      <a href="/accounts/google/login/?process=login" class="btn btn-primary">Sign in with Google to start →</a>
-    {% endif %}
-  </div>
-  <div class="mock-cert">
-    <div class="mock-cert-eyebrow">Certificate of Participation</div>
-    <h2>HackNova 2026</h2>
-    <span class="cert-name">Ashay Deshpande</span>
-    <div class="cert-sub">has successfully participated in the 24-hour hackathon</div>
-    <div class="mock-cert-seal">✓</div>
-  </div>
-</section>
-
-<div class="steps">
-  <div class="step">
-    <div class="step-num">01</div>
-    <h3>Upload sheet &amp; template</h3>
-    <p>Add your Excel sheet (Name + Email columns) from the Google Form, plus your certificate design as an image.</p>
-  </div>
-  <div class="step">
-    <div class="step-num">02</div>
-    <h3>Place the name</h3>
-    <p>Click once on your template to mark where names go. Pick a font, size and color — see it live.</p>
-  </div>
-  <div class="step">
-    <div class="step-num">03</div>
-    <h3>Generate &amp; send</h3>
-    <p>Every student gets their own PDF certificate, emailed directly to their Gmail — no manual work.</p>
-  </div>
 </div>
 
 <div class="section-head">
@@ -79,15 +31,10 @@
   <span class="muted">{{ events|length }} event{{ events|length|pluralize }}</span>
 </div>
 
-{% if not user.is_authenticated %}
-<div class="empty-state">
-  <p>Sign in with Google to create events and send certificates from your own Gmail account.</p>
-  <a href="/accounts/google/login/?process=login" class="btn btn-primary" style="margin-top:14px;">Sign in with Google</a>
-</div>
-{% elif events %}
+{% if events %}
 <div class="event-grid">
   {% for event in events %}
-  <div class="event-card" style="position:relative;">
+  <div class="event-card">
     <a href="{% if event.is_configured %}{% url 'student_list' event.id %}{% else %}{% url 'position_certificate' event.id %}{% endif %}" style="display:block;color:inherit;text-decoration:none;">
       <h3>{{ event.name }}</h3>
       <span class="muted">{{ event.organizer|default:"Independent event" }}</span>
@@ -96,7 +43,7 @@
         <span><b>{{ event.sent_count }}</b> sent</span>
       </div>
       {% if event.is_configured %}
-        <span class="seal-badge seal-generated"><span class="dot"></span> Configured</span>
+        <span class="seal-badge seal-generated"><span class="dot"></span> Ready to send</span>
       {% else %}
         <span class="seal-badge seal-pending"><span class="dot"></span> Needs layout</span>
       {% endif %}
@@ -110,13 +57,12 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <p>No events yet. Create one to upload your first certificate template and student list.</p>
-  <a href="{% url 'create_event' %}" class="btn btn-primary" style="margin-top:14px;">+ New Event</a>
+  <p>No events yet. Create one to upload a certificate design and a participant list.</p>
+  <a href="{% url 'create_event' %}" class="btn btn-primary" style="margin-top:14px;">Create an event</a>
 </div>
 {% endif %}
 
-{% if user.is_authenticated %}
-<div class="section-head" style="margin-top:40px;">
+<div class="section-head">
   <h2>Your updates</h2>
   <span class="muted">{{ update_campaigns|length }} update{{ update_campaigns|length|pluralize }}</span>
 </div>
@@ -124,7 +70,7 @@
 {% if update_campaigns %}
 <div class="event-grid">
   {% for campaign in update_campaigns %}
-  <div class="event-card" style="position:relative;">
+  <div class="event-card mail-card">
     <a href="{% url 'update_detail' campaign.id %}" style="display:block;color:inherit;text-decoration:none;">
       <h3>{{ campaign.subject }}</h3>
       <span class="muted">{{ campaign.created_at|date:"j M Y" }}</span>
@@ -133,7 +79,7 @@
         <span><b>{{ campaign.sent_count }}</b> sent</span>
       </div>
       {% if campaign.pending_count %}
-        <span class="seal-badge seal-pending"><span class="dot"></span> {{ campaign.pending_count }} to send</span>
+        <span class="seal-badge seal-pending"><span class="dot"></span> {{ campaign.pending_count }} left to send</span>
       {% else %}
         <span class="seal-badge seal-sent"><span class="dot"></span> All sent</span>
       {% endif %}
@@ -147,10 +93,54 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <p>No updates yet. Write one to announce something to a whole list of people.</p>
-  <a href="{% url 'update_create' %}" class="btn btn-primary" style="margin-top:14px;">+ New Update</a>
+  <p>No updates yet. Write one to tell a whole list of people about your event.</p>
+  <a href="{% url 'update_create' %}" class="btn btn-primary" style="margin-top:14px;">Write an update</a>
 </div>
 {% endif %}
+
+{% else %}
+
+<section class="hero">
+  <div>
+    <h1>Send certificates and event updates from your own Gmail.</h1>
+    <p>Upload your participant list once. Certify puts each name on your certificate and emails it, or mails one message to everyone, with a poster if you want.</p>
+    <a href="/accounts/google/login/?process=login" class="btn btn-primary">Sign in with Google</a>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <div class="mock-cert">
+      <div class="mock-cert-eyebrow">Certificate of participation</div>
+      <h2>HackNova 2026</h2>
+      <span class="cert-name">Ashay Deshpande</span>
+      <div class="cert-sub">took part in the 24-hour hackathon</div>
+      <div class="mock-cert-seal">✓</div>
+    </div>
+    <div class="art-mail"><span></span></div>
+  </div>
+</section>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <h3>Upload your list and design</h3>
+    <p>Add a sheet with names and emails, plus your certificate design as an image.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <h3>Place the name</h3>
+    <p>Click once on your design to mark where names go. Pick a font, size and color and see it live.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <h3>Send</h3>
+    <p>Every person gets their own PDF in their inbox. For announcements, skip the design and send one message to the whole list.</p>
+  </div>
+</div>
+
+<div class="empty-state">
+  <p>Sign in with Google to create events and send from your own Gmail account.</p>
+  <a href="/accounts/google/login/?process=login" class="btn btn-primary" style="margin-top:14px;">Sign in with Google</a>
+</div>
+
 {% endif %}
 
 {% endblock %}
