@@ -2,7 +2,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
+import logging
+
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.views.defaults import server_error as _default_server_error
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 
@@ -10,6 +15,41 @@ from .forms import EventCreateForm
 from .models import Event, Student, UpdateCampaign
 from .email_tools import suggest_email, tidy_name
 from .utils import name_needs_shrink, parse_excel, generate_certificate_pdf, send_certificate_email
+
+
+logger = logging.getLogger(__name__)
+
+_DB_DOWN_NAMES = {"OperationalError", "InterfaceError"}
+
+
+def _is_database_down(exc):
+    """True when `exc` (or what caused it) is a database connection failure,
+    e.g. the database expired, was deleted, or DATABASE_URL points nowhere."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if any(c.__name__ in _DB_DOWN_NAMES for c in type(exc).__mro__):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
+def server_error(request):
+    """Custom 500 page. If the database can't be reached, show a friendly
+    "paused" page (no database needed to draw it) instead of a raw error."""
+    import sys
+
+    exc = sys.exc_info()[1]
+    if _is_database_down(exc):
+        logger.error("DATABASE UNAVAILABLE - check DATABASE_URL / whether the database expired: %r", exc)
+        # Rendered without a request on purpose: context processors would
+        # touch the database again and fail the same way.
+        html = render_to_string("certificates/maintenance.html")
+        response = HttpResponse(html, status=503)
+        response["Retry-After"] = "600"
+        response["Cache-Control"] = "no-store"
+        return response
+    return _default_server_error(request)
 
 
 def privacy_policy(request):

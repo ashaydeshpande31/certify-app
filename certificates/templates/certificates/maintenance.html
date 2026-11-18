@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="90">
+<meta name="theme-color" content="#0a1020">
+<title>Certify is paused</title>
+<style>
+  :root { color-scheme: dark light; --bg:#0a1020; --card:#101a2f; --line:#24324f; --text:#c9d3ea; --hi:#f2f5ff; --accent:#4a66e8; --warn:#f5b942; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f3f5fb; --card:#ffffff; --line:#d5dcee; --text:#3a4560; --hi:#101a2f; } }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+         background:var(--bg); color:var(--text); font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .stripe { position:fixed; top:0; left:0; right:0; height:8px;
+            background:repeating-linear-gradient(135deg,#d64545 0 14px,#fff 14px 28px,#3b62d8 28px 42px,#fff 42px 56px); }
+  main { width:min(520px,100%); background:var(--card); border:1px solid var(--line); border-radius:18px; padding:32px 28px; text-align:center; }
+  .brand { font-weight:800; letter-spacing:.04em; font-size:1.3rem; color:var(--hi); margin-bottom:18px; }
+  .icon { width:64px; height:64px; margin:0 auto 14px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+          background:rgba(245,185,66,.15); color:var(--warn); }
+  h1 { margin:0 0 10px; font-size:1.5rem; color:var(--hi); line-height:1.25; }
+  p { margin:0 0 12px; }
+  .small { font-size:.88rem; opacity:.85; }
+  a.btn, button { display:inline-block; margin-top:8px; padding:11px 22px; border-radius:10px; border:0; cursor:pointer;
+                  background:var(--accent); color:#fff; font:inherit; font-weight:600; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="stripe" aria-hidden="true"></div>
+<main>
+  <div class="brand">CERTIFY</div>
+  <div class="icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg>
+  </div>
+  <h1>This app is paused for now</h1>
+  <p>The owner of Certify needs to renew the service behind it. The site will work again as soon as that is done.</p>
+  <p class="small">Please try again a little later. This page checks again by itself every minute and a half.</p>
+  <button type="button" onclick="location.reload()">Try again</button>
+</main>
+</body>
+</html>
