@@ -18,6 +18,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from .name_guess import guess_name_from_email
 from .models import Event, Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
 from .update_utils import (
     ALLOWED_ATTACHMENT_EXTENSIONS,
@@ -79,7 +80,7 @@ def _clean_recipients(rows):
             skipped_dupe += 1
             continue
         seen.add(key)
-        good.append({"name": (name or email.split("@")[0])[:200], "email": email})
+        good.append({"name": (name or guess_name_from_email(email))[:200], "email": email})
     return good, skipped_bad, skipped_dupe
 
 
@@ -234,7 +235,7 @@ def update_add_recipient(request, campaign_id):
     if len(email) > 254:
         messages.error(request, "That email address is too long.")
         return redirect("update_detail", campaign_id=campaign.id)
-    UpdateRecipient.objects.create(campaign=campaign, name=(name or email.split("@")[0])[:200], email=email)
+    UpdateRecipient.objects.create(campaign=campaign, name=(name or guess_name_from_email(email))[:200], email=email)
     messages.success(request, f"Added {email}. Use the send button to mail the pending people.")
     return redirect("update_detail", campaign_id=campaign.id)
 

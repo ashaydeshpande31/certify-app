@@ -18,6 +18,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from .models import Student, UpdateRecipient
+from .name_guess import guess_name_from_email
 from .utils import _get_gmail_service
 
 # How many mails one browser request sends. Small on purpose: Render's
@@ -58,7 +59,11 @@ _QUOTA_HINTS = ("ratelimit", "quota", "daily", "user-rate", "too many")
 def build_update_body(campaign, recipient):
     """The mail body is the organiser's message exactly as typed. The only
     thing touched is the optional {name} placeholder, if they typed one."""
-    return campaign.message.replace("{name}", recipient.name)
+    name = (recipient.name or "").strip()
+    # older rows saved the raw start of the email as the name: guess a real one
+    if not name or name.lower() == recipient.email.split("@")[0].lower():
+        name = guess_name_from_email(recipient.email)
+    return campaign.message.replace("{name}", name or "there")
 
 
 def clean_subject(subject):
