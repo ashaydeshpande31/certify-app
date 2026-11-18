@@ -61,12 +61,15 @@ def _clean_recipients(rows):
         except DjangoValidationError:
             skipped_bad += 1
             continue
+        if len(email) > 254:
+            skipped_bad += 1
+            continue
         key = email.lower()
         if key in seen:
             skipped_dupe += 1
             continue
         seen.add(key)
-        good.append({"name": name or email.split("@")[0], "email": email})
+        good.append({"name": (name or email.split("@")[0])[:200], "email": email})
     return good, skipped_bad, skipped_dupe
 
 
@@ -92,6 +95,8 @@ def update_create(request):
     errors = []
     if not subject:
         errors.append("Please add a subject line.")
+    elif len(subject) > 200:
+        errors.append("The subject is too long — keep it under 200 characters.")
     if not message:
         errors.append("Please write the message you want people to receive.")
     if not list_file and not pasted_text.strip():
@@ -184,8 +189,8 @@ def update_edit(request, campaign_id):
     campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
     subject = clean_subject(request.POST.get("subject", ""))
     message = request.POST.get("message", "").replace("\r\n", "\n").strip()
-    if not subject or not message:
-        messages.error(request, "Subject and message can't be empty — nothing was changed.")
+    if not subject or not message or len(subject) > 200:
+        messages.error(request, "Subject and message can't be empty, and the subject must be under 200 characters — nothing was changed.")
         return redirect("update_detail", campaign_id=campaign.id)
     campaign.subject = subject
     campaign.message = message
@@ -208,7 +213,10 @@ def update_add_recipient(request, campaign_id):
     if campaign.recipients.filter(email__iexact=email).exists():
         messages.error(request, f"{email} is already on this list.")
         return redirect("update_detail", campaign_id=campaign.id)
-    UpdateRecipient.objects.create(campaign=campaign, name=name or email.split("@")[0], email=email)
+    if len(email) > 254:
+        messages.error(request, "That email address is too long.")
+        return redirect("update_detail", campaign_id=campaign.id)
+    UpdateRecipient.objects.create(campaign=campaign, name=(name or email.split("@")[0])[:200], email=email)
     messages.success(request, f"Added {email}. Use the send button to mail the pending people.")
     return redirect("update_detail", campaign_id=campaign.id)
 

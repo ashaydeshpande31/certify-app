@@ -164,19 +164,26 @@
         bar.style.width = (total ? Math.round((done / total) * 100) : 100) + '%';
         text.textContent = 'Sent ' + d.sent_total + ' of ' + total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : '') + '…';
         if (d.stop) {
-          note.textContent = 'Google\'s sending limit was reached, so sending stopped. Come back later (the limit resets within 24 hours) and press send again — only the people still pending will be mailed. Reason: ' + d.error;
           text.textContent = 'Paused at ' + d.sent_total + ' of ' + total + ' sent.';
+          note.textContent = d.error;
+          lock(false);
           return;
         }
         if (!d.remaining) break;
-        if (d.sent === 0 && d.failed === 0) break; // nothing could be claimed — avoid spinning
+        if (d.sent === 0 && d.failed === 0) {
+          // Nothing could be claimed (e.g. another tab is sending). Don't spin.
+          text.textContent = 'Waiting on another send to finish…';
+          note.textContent = 'Reloading in a moment to show the latest status.';
+          setTimeout(function () { window.location.reload(); }, 4000);
+          return;
+        }
       }
       text.textContent = 'Finished.';
       note.textContent = failedThisRun ? 'Some mails failed — see the Failed rows below, then use "Retry failed".' : 'Everyone has been sent the update.';
       setTimeout(function () { window.location.reload(); }, 1500);
     } catch (err) {
       text.textContent = 'Stopped: ' + err.message;
-      note.textContent = 'Check your connection and press send again — people already sent are skipped.';
+      note.textContent = 'Check your connection and press send again — people already sent are skipped. If it keeps failing, reload the page; you may need to sign in with Google again.';
       lock(false);
     }
   }

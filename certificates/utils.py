@@ -291,7 +291,9 @@ def _get_gmail_service(user):
     )
 
     try:
-        if creds.expired and creds.refresh_token:
+        if creds.refresh_token:
+            # Always refresh: Credentials built without an expiry never report
+            # "expired", so a token older than ~1 hour would 401 on every send.
             creds.refresh(Request())
             token.token = creds.token
             token.save(update_fields=["token"])

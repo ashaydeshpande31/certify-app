@@ -28,7 +28,7 @@ TIME_BUDGET_SECONDS = 15
 STUCK_AFTER = timedelta(minutes=3)
 
 MAX_ATTACHMENTS = 10
-MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024  # Gmail's hard cap is 25 MB per mail
+MAX_TOTAL_ATTACHMENT_BYTES = 5 * 1024 * 1024  # small = fast sends, no timeouts, safe for Gmail's API
 MAX_RECIPIENTS = 2000
 ALLOWED_ATTACHMENT_EXTENSIONS = (
     ".jpg", ".jpeg", ".png", ".gif", ".webp",
@@ -88,6 +88,28 @@ def _send_via_smtp(to_email, subject, body, attachments):
     email.send(fail_silently=False)
 
 
+_AUTH_HINTS = ("invalid_grant", "invalid credentials", "unauthorized", "401", "token has been expired",
+               "invalid_client", "unauthenticated", "insufficient")
+
+QUOTA_MESSAGE = (
+    "Google's daily sending limit was reached (about 500 emails/day on a normal Gmail). "
+    "Come back later and press send again — only people still pending will be mailed."
+)
+AUTH_MESSAGE = (
+    "Your Google sign-in expired. Log out, sign in with Google again, then press send — "
+    "only people still pending will be mailed."
+)
+
+
+def is_auth_error(message):
+    text = (message or "").lower()
+    return any(hint in text for hint in _AUTH_HINTS)
+
+
+def _smtp_configured():
+    return settings.EMAIL_BACKEND.endswith("smtp.EmailBackend")
+
+
 def is_quota_error(message):
     text = (message or "").lower()
     return any(hint in text for hint in _QUOTA_HINTS)
@@ -110,6 +132,18 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE):
     subject = clean_subject(campaign.subject)
     attachments = _load_attachments(campaign)
     service = _get_gmail_service(sender)
+
+    # No Gmail access and no shared SMTP account: the old behaviour would
+    # "send" to the server console and mark everyone Sent without mailing
+    # anyone. Stop with a clear message instead.
+    if service is None and not _smtp_configured():
+        return {
+            "sent": 0,
+            "failed": 0,
+            "remaining": campaign.recipients.filter(status="pending").count(),
+            "stop": True,
+            "error": AUTH_MESSAGE,
+        }
 
     sent = failed = 0
     stop = False
@@ -138,14 +172,21 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE):
             recipient.save()
             sent += 1
         except Exception as exc:  # noqa: BLE001 - surface any send error in the UI
-            last_error = str(exc)[:300]
+            text = str(exc)[:300]
+            if is_quota_error(text) or is_auth_error(text):
+                # Not this person's fault: leave them pending so a later
+                # "send" picks them up, and pause the whole run.
+                recipient.status = "pending"
+                recipient.error_message = ""
+                recipient.save()
+                stop = True
+                last_error = QUOTA_MESSAGE if is_quota_error(text) else AUTH_MESSAGE
+                break
+            last_error = text
             recipient.status = "failed"
-            recipient.error_message = last_error
+            recipient.error_message = text
             recipient.save()
             failed += 1
-            if is_quota_error(last_error):
-                stop = True
-                break
 
     return {
         "sent": sent,
