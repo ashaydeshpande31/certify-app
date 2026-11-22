@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
 import logging
+import re
 from io import BytesIO
 
 from django.db.models import Count, Q
@@ -26,7 +27,7 @@ from .utils import (
     send_certificate_email,
     store_template_copy,
 )
-from .update_utils import DAILY_LIMIT, sent_last_24h
+from .update_utils import ALLOWED_ATTACHMENT_EXTENSIONS, DAILY_LIMIT, guess_content_type, sent_last_24h
 
 
 logger = logging.getLogger(__name__)
@@ -238,6 +239,7 @@ def student_list(request, event_id):
             "event": event,
             "students": students,
             "pending_to_send": pending_to_send,
+            "extra_count": students.filter(send_extra=True).count() if event.extra_name else 0,
             "report": report,
             "typos": typos,
             "template_missing": template_missing,
@@ -393,6 +395,68 @@ def fix_student_email(request, event_id):
     else:
         messages.info(request, "Nothing to fix.")
     return redirect("student_list", event_id=event.id)
+
+
+MAX_EXTRA_BYTES = 3 * 1024 * 1024  # keeps every email small and fast
+
+
+@login_required
+@require_POST
+def event_extra_upload(request, event_id):
+    """Attach one extra file (poster, guide...) that goes with the certificate
+    to the people you choose."""
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    f = request.FILES.get("extra_file")
+    if not f:
+        messages.error(request, "Choose a file first.")
+        return redirect("student_list", event_id=event.id)
+    name = re.sub(r"[^\w .()\-]", "_", f.name.replace("\\", "/").split("/")[-1]).strip()[:120] or "attachment"
+    if not name.lower().endswith(ALLOWED_ATTACHMENT_EXTENSIONS):
+        messages.error(request, "That file type is not allowed. Use an image, PDF, Word, PowerPoint, Excel or text file.")
+        return redirect("student_list", event_id=event.id)
+    if f.size > MAX_EXTRA_BYTES:
+        messages.error(request, "That file is over 3 MB. Make it smaller so the emails stay fast.")
+        return redirect("student_list", event_id=event.id)
+    event.extra_data = f.read()
+    event.extra_name = name
+    event.extra_type = guess_content_type(name)
+    event.save(update_fields=["extra_data", "extra_name", "extra_type"])
+    event.students.update(send_extra=False)
+    messages.success(request, f"Added {name}. Now tick the people who should get it, or press 'Everyone'.")
+    return redirect("student_list", event_id=event.id)
+
+
+@login_required
+@require_POST
+def event_extra_remove(request, event_id):
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    event.extra_data = None
+    event.extra_name = ""
+    event.extra_type = ""
+    event.save(update_fields=["extra_data", "extra_name", "extra_type"])
+    event.students.update(send_extra=False)
+    messages.success(request, "Extra file removed.")
+    return redirect("student_list", event_id=event.id)
+
+
+@login_required
+@require_POST
+def event_extra_assign(request, event_id):
+    """Everyone / nobody, for people who have not been sent yet."""
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    if event.extra_name:
+        event.students.exclude(status="sent").update(send_extra=(request.POST.get("mode") == "all"))
+    return redirect("student_list", event_id=event.id)
+
+
+@login_required
+@require_POST
+def student_toggle_extra(request, event_id, student_id):
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    student = get_object_or_404(Student, id=student_id, event=event)
+    student.send_extra = request.POST.get("value") == "1"
+    student.save(update_fields=["send_extra"])
+    return JsonResponse({"ok": True, "send_extra": student.send_extra})
 
 
 @login_required

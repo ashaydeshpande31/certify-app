@@ -384,7 +384,7 @@ def _safe_filename(name):
     return cleaned[:80]
 
 
-def _send_via_gmail_api(service, student, subject, body, attachment_bytes, attachment_name):
+def _send_via_gmail_api(service, student, subject, body, attachment_bytes, attachment_name, extras=()):
     message = MIMEMultipart()
     message["to"] = student.email
     message["subject"] = Header(subject, "utf-8")
@@ -397,8 +397,23 @@ def _send_via_gmail_api(service, student, subject, body, attachment_bytes, attac
     part.add_header("Content-Disposition", "attachment", filename=("utf-8", "", attachment_name))
     message.attach(part)
 
+    for ex_name, ex_type, ex_data in extras:
+        maintype, _, subtype = (ex_type or "application/octet-stream").partition("/")
+        extra = MIMEBase(maintype or "application", subtype or "octet-stream")
+        extra.set_payload(ex_data)
+        encoders.encode_base64(extra)
+        extra.add_header("Content-Disposition", "attachment", filename=("utf-8", "", ex_name))
+        message.attach(extra)
+
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     service.users().messages().send(userId="me", body={"raw": raw}).execute()
+
+
+def extras_for(event, student):
+    """The event's extra file as a list, when this person is meant to get it."""
+    if event.extra_data and event.extra_name and getattr(student, "send_extra", False):
+        return [(event.extra_name, event.extra_type or "application/octet-stream", bytes(event.extra_data))]
+    return []
 
 
 def send_certificate_email(event, student, sender=None, service=None):
@@ -418,9 +433,10 @@ def send_certificate_email(event, student, sender=None, service=None):
 
     try:
         attachment_bytes = render_certificate_pdf_bytes(event, student.name)
+        extras = extras_for(event, student)
         gmail_service = service if service is not None else _get_gmail_service(sender)
         if gmail_service is not None:
-            _send_via_gmail_api(gmail_service, student, subject, body, attachment_bytes, attachment_name)
+            _send_via_gmail_api(gmail_service, student, subject, body, attachment_bytes, attachment_name, extras)
         elif _uu._smtp_configured():
             email = EmailMessage(
                 subject=subject,
@@ -429,6 +445,8 @@ def send_certificate_email(event, student, sender=None, service=None):
                 to=[student.email],
             )
             email.attach(attachment_name, attachment_bytes, "application/pdf")
+            for ex_name, ex_type, ex_data in extras:
+                email.attach(ex_name, ex_data, ex_type)
             email.send(fail_silently=False)
         else:
             raise RuntimeError(_uu.AUTH_MESSAGE)

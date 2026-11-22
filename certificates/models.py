@@ -19,6 +19,10 @@ class Event(models.Model):
     # A copy of the design image kept in the database. Render's disk is wiped on
     # every deploy, so the file above can disappear; this copy never does.
     template_data = models.BinaryField(null=True, blank=True)
+    # optional extra file (poster, guide...) sent together with the certificate to chosen people
+    extra_data = models.BinaryField(null=True, blank=True)
+    extra_name = models.CharField(max_length=200, blank=True, default="")
+    extra_type = models.CharField(max_length=100, blank=True, default="")
     template_type = models.CharField(max_length=60, blank=True, default="")
     excel_file = models.FileField(upload_to="excels/", blank=True, null=True)
 
@@ -71,6 +75,7 @@ class Student(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
     certificate_file = models.FileField(upload_to="certificates/", blank=True, null=True)
     error_message = models.CharField(max_length=300, blank=True)
+    send_extra = models.BooleanField(default=False, help_text="Also attach the event's extra file to this person's email.")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
