@@ -891,3 +891,9 @@ legend { padding:0; }
 /* performance: keep the fixed background on its own layer so scrolling never repaints it */
 body::before { transform: translateZ(0); }
 .footer { content-visibility: auto; contain-intrinsic-size: auto 80px; }
+
+/* typo card: the "Fix all" button sits at the top, next to the title */
+.lc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.lc-head .lc-title { margin-bottom: 0; }
+.fix-all-form { margin: 0; }
+.fix-all-form .btn { min-height: 44px; }

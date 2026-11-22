@@ -125,7 +125,15 @@
 
 {% if typos %}
 <div class="form-card list-check is-typo" style="margin-bottom:24px; max-width:none;">
-  <div class="lc-title">Possible typos in email addresses</div>
+  <div class="lc-head">
+    <div class="lc-title">Possible typos in email addresses</div>
+    {% if typos|length > 1 %}
+    <form method="post" action="{% url 'update_fix_email' campaign.id %}" class="fix-all-form">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">Fix all {{ typos|length }}</button>
+    </form>
+    {% endif %}
+  </div>
   <p class="muted" style="margin:4px 0 12px;">These look like a misspelled mail provider. A wrong address bounces and that person never gets the update.</p>
   <ul class="typo-list">
     {% for t in typos %}
@@ -143,12 +151,6 @@
     </li>
     {% endfor %}
   </ul>
-  {% if typos|length > 1 %}
-  <form method="post" action="{% url 'update_fix_email' campaign.id %}" style="margin-top:12px;">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-ghost">Fix all {{ typos|length }}</button>
-  </form>
-  {% endif %}
 </div>
 {% endif %}
 
