@@ -196,3 +196,23 @@ class SenderSetting(models.Model):
 
     def __str__(self):
         return f"{self.owner}: {self.check_email or 'account email'}"
+
+
+class DeletedEntry(models.Model):
+    """A person removed from a certificate list (`event`) or an update list (`campaign`).
+    Kept here so a mistaken delete can be undone with "Re-add"."""
+
+    event = models.ForeignKey(Event, null=True, blank=True, on_delete=models.CASCADE, related_name="deleted_entries")
+    campaign = models.ForeignKey(UpdateCampaign, null=True, blank=True, on_delete=models.CASCADE, related_name="deleted_entries")
+    name = models.CharField(max_length=200)
+    email = models.EmailField()
+    status = models.CharField(max_length=10, default="pending")
+    error_message = models.CharField(max_length=300, blank=True)
+    send_extra = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-deleted_at"]
+
+    def __str__(self):
+        return f"deleted: {self.name} <{self.email}>"

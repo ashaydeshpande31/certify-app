@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 
 from .forms import EventCreateForm
-from .models import Event, Student, UpdateCampaign
+from .models import DeletedEntry, Event, Student, UpdateCampaign
 from .email_tools import suggest_email, tidy_name
 from .utils import (
     get_template_bytes,
@@ -325,6 +325,7 @@ def student_list(request, event_id):
         {
             "event": event,
             "students": _check_first(students, get_check_email(request.user)),
+            "deleted_entries": list(event.deleted_entries.all()[:200]),
             "pending_to_send": pending_to_send,
             "chunk_mode": chunk_mode,
             "chunk_size": CHUNK_SIZE,
@@ -387,8 +388,31 @@ def delete_student(request, event_id, student_id):
     event = get_object_or_404(Event, id=event_id, owner=request.user)
     student = get_object_or_404(Student, id=student_id, event=event)
     label = student.email
+    DeletedEntry.objects.create(
+        event=event, name=student.name, email=student.email, status=student.status,
+        error_message=student.error_message, send_extra=student.send_extra,
+    )
     student.delete()
-    messages.success(request, f"Removed {label} from this list.")
+    messages.success(request, f"Removed {label}. You can bring them back from the Deleted box below the list.")
+    return redirect("student_list", event_id=event.id)
+
+
+@login_required
+@require_POST
+def restore_student(request, event_id, entry_id):
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    entry = get_object_or_404(DeletedEntry, id=entry_id, event=event)
+    if event.students.filter(email__iexact=entry.email).exists():
+        entry.delete()
+        messages.info(request, f"{entry.email} is already on the list.")
+        return redirect("student_list", event_id=event.id)
+    Student.objects.create(
+        event=event, name=entry.name, email=entry.email,
+        status=("pending" if entry.status in ("sending", "generated") else entry.status),
+        error_message=entry.error_message, send_extra=entry.send_extra,
+    )
+    entry.delete()
+    messages.success(request, f"Added {entry.email} back to the list.")
     return redirect("student_list", event_id=event.id)
 
 

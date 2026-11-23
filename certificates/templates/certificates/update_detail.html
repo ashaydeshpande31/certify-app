@@ -285,6 +285,23 @@
     </tbody>
   </table>
 </div>
+{% if deleted_entries %}
+<details class="deleted-box" id="deleted-box">
+  <summary>Deleted ({{ deleted_entries|length }}) <span class="muted">· removed by mistake? Re-add them here</span></summary>
+  <ul class="deleted-list">
+    {% for d in deleted_entries %}
+    <li>
+      <div class="del-who"><b>{{ d.name }}</b> <span class="muted">{{ d.email }}</span><span class="muted del-when">deleted {{ d.deleted_at|timesince }} ago</span></div>
+      <form method="post" action="{% url 'update_restore_recipient' campaign.id d.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-ghost">Re-add</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+
 
 <script>
 function toggleRecipientEdit(id) {

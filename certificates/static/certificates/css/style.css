@@ -970,3 +970,11 @@ body::before { transform: translateZ(0); }
   .tbl-updates td:nth-child(5) .btn { width: 100%; min-height: 40px; justify-content: center; }
   .tbl-updates td:nth-child(5) > .btn { flex: 1; }
 }
+.deleted-box { margin: 18px 0 28px; border: 1px dashed var(--ink-border); border-radius: 14px; background: var(--ink-800, var(--ink-700)); padding: 4px 16px; }
+.deleted-box summary { cursor: pointer; padding: 12px 0; font-weight: 600; color: var(--text-hi); }
+.deleted-box summary:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 2px; border-radius: 6px; }
+.deleted-list { list-style: none; margin: 0; padding: 0 0 8px; }
+.deleted-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--ink-border); }
+.del-who { min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; word-break: break-all; }
+.del-when { font-size: .78rem; }
+.deleted-list form { flex: 0 0 auto; } .deleted-list .btn { white-space: nowrap; }

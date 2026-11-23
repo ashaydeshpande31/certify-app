@@ -21,7 +21,7 @@ from django.views.decorators.http import require_POST
 
 from .email_tools import suggest_email, tidy_name
 from .name_guess import guess_name_from_email
-from .models import Event, Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
+from .models import DeletedEntry, Event, Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
 from .update_utils import (
     ensure_check_copy_update,
     IMAGE_EXTENSIONS,
@@ -215,6 +215,7 @@ def update_detail(request, campaign_id):
             "cron_ready": bool(os.environ.get("CRON_SECRET")),
             "campaign": campaign,
             "recipients": rows,
+            "deleted_entries": list(campaign.deleted_entries.all()[:200]),
             "attachments": campaign.attachments.defer("data"),      # file bytes are not needed to list names
             "total": len(rows),
             "sent_count": sum(1 for x in rows if x.status == "sent"),
@@ -310,8 +311,29 @@ def update_delete_recipient(request, campaign_id, recipient_id):
     campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
     r = get_object_or_404(UpdateRecipient, id=recipient_id, campaign=campaign)
     label = r.email
+    DeletedEntry.objects.create(
+        campaign=campaign, name=r.name, email=r.email, status=r.status, error_message=r.error_message,
+    )
     r.delete()
-    messages.success(request, f"Removed {label} from this list.")
+    messages.success(request, f"Removed {label}. You can bring them back from the Deleted box below the list.")
+    return redirect("update_detail", campaign_id=campaign.id)
+
+
+@login_required
+@require_POST
+def update_restore_recipient(request, campaign_id, entry_id):
+    campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
+    entry = get_object_or_404(DeletedEntry, id=entry_id, campaign=campaign)
+    if campaign.recipients.filter(email__iexact=entry.email).exists():
+        entry.delete()
+        messages.info(request, f"{entry.email} is already on the list.")
+        return redirect("update_detail", campaign_id=campaign.id)
+    UpdateRecipient.objects.create(
+        campaign=campaign, name=entry.name, email=entry.email,
+        status=("pending" if entry.status == "sending" else entry.status), error_message=entry.error_message,
+    )
+    entry.delete()
+    messages.success(request, f"Added {entry.email} back to the list.")
     return redirect("update_detail", campaign_id=campaign.id)
 
 
