@@ -2,15 +2,20 @@
 echo Starting Certify...
 echo.
 
-REM Activate the virtual environment
-call venv\Scripts\activate
+REM First run: make the virtual environment and install everything
+if not exist venv (
+    python -m venv venv
+    call venv\Scripts\activate
+    pip install -r requirements.txt
+) else (
+    call venv\Scripts\activate
+)
 
-REM Set your Gmail credentials for sending real emails
-REM Replace the values below with your actual Gmail address and App Password
-set EMAIL_HOST_USER=ashaydeshpande2025@gmail.com
-set EMAIL_HOST_PASSWORD=bzxzzlbwwoftekgt
+REM Your own keys live in local_env.bat (it is NOT uploaded to GitHub).
+REM See the README, step 5.
+if exist local_env.bat call local_env.bat
 
-REM Start the Django server
+python manage.py migrate
 python manage.py runserver
 
 pause

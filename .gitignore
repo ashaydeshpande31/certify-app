@@ -5,3 +5,5 @@ media/
 .env
 venv/
 env/
+local_env.bat
+*.env
