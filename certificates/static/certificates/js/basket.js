@@ -137,13 +137,18 @@
       if (reduce || !card.animate) return finish();
       var c = card.getBoundingClientRect(), h = hoop.getBoundingClientRect();
       var base = (card.style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/) || [0, 0, 0]);
-      var tx = (h.left + h.width / 2) - (c.left + c.width / 2) + Number(base[1]);
-      var ty = (h.top + h.height / 2) - (c.top + c.height / 2) + Number(base[2]);
+      var bx = Number(base[1]), by = Number(base[2]);
+      var tx = (h.left + h.width / 2) - (c.left + c.width / 2) + bx;
+      var ty = (h.top + h.height / 2) - (c.top + c.height / 2) + by;
+      // fly along the same arc the dots showed: start where it was let go, bend upwards, drop into the rim
+      var cx = (bx + tx) / 2, cy = Math.min(by, ty) - 70, frames = [], N = 14;
+      for (var i = 0; i <= N; i++) {
+        var t = i / N, u = 1 - t;
+        var x = u * u * bx + 2 * u * t * cx + t * t * tx, y = u * u * by + 2 * u * t * cy + t * t * ty;
+        frames.push({ transform: 'translate(' + x + 'px,' + y + 'px) scale(' + (1 - t * 0.72) + ') rotate(' + (t * 200) + 'deg)', opacity: 1 - t * 0.75 });
+      }
       card.style.transition = 'none';
-      var a = card.animate([
-        { transform: card.style.transform || 'none', opacity: 1 },
-        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(.28) rotate(200deg)', opacity: .25 }
-      ], { duration: 420, easing: 'cubic-bezier(.4,0,.8,.6)' });
+      var a = card.animate(frames, { duration: 650, easing: 'cubic-bezier(.35,.1,.6,1)' });
       a.onfinish = finish;
     }
     function inHoop(x, y) {          // where the finger / cursor is, not where the wide card's middle is
@@ -184,7 +189,7 @@
         active = false;
         hideAim();
         hoopWrap.classList.remove('hot');
-        if (inHoop(px, py)) { score(card); return; }
+        if (inHoop(px, py) || Math.hypot(px - sx, py - sy) > 40) { score(card); return; }   // let go = shoot along the dots
         card.classList.remove('dragging');
         card.style.transition = reduce ? 'none' : 'transform .38s cubic-bezier(.3,1.5,.5,1)';
         card.style.transform = '';
