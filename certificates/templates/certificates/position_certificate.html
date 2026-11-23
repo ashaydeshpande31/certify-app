@@ -1,4 +1,5 @@
 {% extends "certificates/base.html" %}
+{% load static %}
 {% block title %}Position Name{% endblock %}
 {% block content %}
 
@@ -47,12 +48,18 @@
       <label for="font_size">Font size</label>
       <input type="range" id="font_size" min="18" max="300" value="{{ event.font_size }}" style="width:100%;">
 
-      <label for="font_choice">Font style</label>
-      <select id="font_choice" name="font_choice">
-        <option value="serif" {% if event.font_choice == "serif" %}selected{% endif %}>Serif — Elegant</option>
-        <option value="sans" {% if event.font_choice == "sans" %}selected{% endif %}>Sans — Modern</option>
-        <option value="script" {% if event.font_choice == "script" %}selected{% endif %}>Bold Serif — Formal</option>
-      </select>
+      <label for="font_search">Font style <span class="muted" id="font-count" style="font-weight:400;"></span></label>
+      <input type="hidden" id="font_choice" name="font_choice" value="{{ event.font_choice }}">
+      <input type="search" id="font_search" placeholder="Search fonts, e.g. serif, script, mono, poppins" autocomplete="off" aria-controls="font-list">
+      <div class="font-cats" id="font-cats" role="group" aria-label="Font type">
+        <button type="button" class="active" data-cat="" aria-pressed="true">All</button>
+        {% regroup fonts by category as font_groups %}{% for g in font_groups %}<button type="button" data-cat="{{ g.grouper }}" aria-pressed="false">{{ g.grouper }}</button>{% endfor %}
+      </div>
+      <ul class="font-list" id="font-list" role="listbox" aria-label="Fonts">
+        <li class="font-item" role="option" data-key="serif" data-cat="Default" data-label="Default (Classic)" aria-selected="false"><span class="font-name">Default (Classic)</span><span class="font-sample" style="font-family:'Fraunces',serif">Aarav Sharma</span></li>
+        {% for f in fonts %}<li class="font-item" role="option" tabindex="-1" data-key="{{ f.key }}" data-cat="{{ f.category }}" data-label="{{ f.label }}" data-file="{% static 'certificates/fonts/' %}{{ f.file }}" aria-selected="false"><span class="font-name">{{ f.label }}</span><span class="font-sample">Aarav Sharma</span></li>{% endfor %}
+      </ul>
+      <p class="muted" id="font-empty" style="display:none;font-size:.85rem;margin:6px 0 0;">No font matches that. Try another word.</p>
 
       <label id="color-label">Color</label>
       <div class="swatches" id="color-swatches" role="group" aria-labelledby="color-label">
@@ -171,12 +178,86 @@ if (templateImg.complete) {
 }
 window.addEventListener('resize', updateMarkerFontSize);
 
-fontChoice.addEventListener('change', function () {
-  const map = { serif: "'Fraunces', serif", sans: "'Inter', sans-serif", script: "'Fraunces', serif" };
-  marker.style.fontFamily = map[this.value];
-  updateMarkerFontSize();
-});
-marker.style.fontFamily = "'Fraunces', serif";
+(function () {
+  const list = document.getElementById('font-list');
+  const search = document.getElementById('font_search');
+  const empty = document.getElementById('font-empty');
+  const count = document.getElementById('font-count');
+  const cats = document.querySelectorAll('#font-cats button');
+  const items = Array.prototype.slice.call(list.querySelectorAll('.font-item'));
+  const loaded = {};
+  let cat = '';
+
+  function loadFont(li) {
+    const key = li.dataset.key;
+    if (!li.dataset.file || loaded[key]) return Promise.resolve();
+    loaded[key] = true;
+    const face = new FontFace('cf-' + key, 'url(' + li.dataset.file + ')');
+    return face.load().then(function (f) {
+      document.fonts.add(f);
+      li.querySelector('.font-sample').style.fontFamily = "'cf-" + key + "'";
+    }).catch(function () { loaded[key] = false; });
+  }
+
+  // only download a font once its row is on screen
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) { loadFont(e.target); io.unobserve(e.target); } });
+  }, { root: list, rootMargin: '80px' }) : null;
+  items.forEach(function (li) { if (io) io.observe(li); else loadFont(li); });
+
+  function choose(li, scroll) {
+    items.forEach(function (x) { x.classList.remove('active'); x.setAttribute('aria-selected', 'false'); });
+    li.classList.add('active');
+    li.setAttribute('aria-selected', 'true');
+    fontChoice.value = li.dataset.key;
+    if (li.dataset.file) {
+      marker.style.fontFamily = "'cf-" + li.dataset.key + "', serif";
+      loadFont(li).then(updateMarkerFontSize);
+    } else {
+      marker.style.fontFamily = "'Fraunces', serif";
+    }
+    updateMarkerFontSize();
+    if (scroll) li.scrollIntoView({ block: 'nearest' });
+  }
+
+  function filter() {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    items.forEach(function (li) {
+      const hay = (li.dataset.label + ' ' + li.dataset.cat).toLowerCase();
+      const ok = (!cat || li.dataset.cat === cat) && (!q || q.split(/\s+/).every(function (w) { return hay.indexOf(w) !== -1; }));
+      li.hidden = !ok;
+      if (ok) shown++;
+    });
+    empty.style.display = shown ? 'none' : 'block';
+    count.textContent = '(' + shown + ' of ' + items.length + ')';
+  }
+
+  list.addEventListener('click', function (e) {
+    const li = e.target.closest('.font-item');
+    if (li) choose(li, false);
+  });
+  search.addEventListener('input', filter);
+  search.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const first = items.filter(function (li) { return !li.hidden; })[0];
+      if (first) choose(first, true);
+    }
+  });
+  cats.forEach(function (b) {
+    b.addEventListener('click', function () {
+      cats.forEach(function (x) { x.classList.remove('active'); x.setAttribute('aria-pressed', 'false'); });
+      b.classList.add('active'); b.setAttribute('aria-pressed', 'true');
+      cat = b.dataset.cat; filter();
+    });
+  });
+
+  const saved = fontChoice.value;
+  const start = items.filter(function (li) { return li.dataset.key === saved; })[0] || items[0];
+  choose(start, true);
+  filter();
+})();
 
 document.querySelectorAll('.swatch').forEach(function (sw) {
   sw.addEventListener('click', function () {

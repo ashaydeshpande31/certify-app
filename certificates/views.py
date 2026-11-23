@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from .forms import EventCreateForm
 from .models import DeletedEntry, Event, Student, UpdateCampaign
+from .fonts import FONT_FILES, font_catalog
 from .email_tools import suggest_email, tidy_name
 from .utils import (
     get_template_bytes,
@@ -269,7 +270,8 @@ def position_certificate(request, event_id):
         event.name_x_percent = float(request.POST.get("name_x_percent", 50))
         event.name_y_percent = float(request.POST.get("name_y_percent", 50))
         event.font_size = int(request.POST.get("font_size", 48))
-        event.font_choice = request.POST.get("font_choice", "serif")
+        picked = request.POST.get("font_choice", "serif")
+        event.font_choice = picked if picked in FONT_FILES or picked in ("serif", "sans", "script") else "serif"
         event.font_color = request.POST.get("font_color", "#1B2A4A")
         event.text_align = request.POST.get("text_align", "center")
         event.is_configured = True
@@ -287,7 +289,7 @@ def position_certificate(request, event_id):
     return render(
         request,
         "certificates/position_certificate.html",
-        {"event": event, "longest_names": longest, "template_missing": template_missing},
+        {"event": event, "longest_names": longest, "template_missing": template_missing, "fonts": font_catalog()},
     )
 
 

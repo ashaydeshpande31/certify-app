@@ -212,8 +212,23 @@ def _load_font(path, size):
     return ImageFont.truetype(path, size) if path else ImageFont.load_default(size=size)
 
 
+_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "certificates", "fonts")
+
+
+def _chosen_font_path(choice):
+    """File for a font picked in the layout page; '' means use the default look."""
+    from .fonts import FONT_FILES
+
+    name = FONT_FILES.get(choice or "")
+    if not name:
+        return ""
+    path = os.path.join(_FONT_DIR, name)
+    return path if os.path.exists(path) else ""
+
+
 def get_font(event, size=None):
-    return _load_font(_font_path(), int(size or event.font_size))
+    path = _chosen_font_path(getattr(event, "font_choice", "")) or _font_path()
+    return _load_font(path, int(size or event.font_size))
 
 
 def hex_to_rgb(hex_color):

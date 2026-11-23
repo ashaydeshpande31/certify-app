@@ -34,11 +34,7 @@ class Event(models.Model):
     name_x_percent = models.FloatField(default=50.0)
     name_y_percent = models.FloatField(default=50.0)
     font_size = models.PositiveIntegerField(default=48)
-    font_choice = models.CharField(
-        max_length=30,
-        default="serif",
-        choices=[("serif", "Serif (Elegant)"), ("sans", "Sans (Modern)"), ("script", "Script (Handwritten)")],
-    )
+    font_choice = models.CharField(max_length=40, default="serif")
     font_color = models.CharField(max_length=7, default="#1B2A4A")
     text_align = models.CharField(
         max_length=10, default="center", choices=[("left", "Left"), ("center", "Center"), ("right", "Right")]
