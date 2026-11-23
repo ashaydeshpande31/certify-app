@@ -78,11 +78,9 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
 });
 
 (function () {
-  // basket game: only for quick send, and only once an attachment (the certificate file) is chosen
+  // basket game: only on the participant list, never on the certificate template
   const tpl = document.getElementById('id_template_image');
-  if (tpl) tpl.setAttribute('data-basket-checked', 'input[name="participant-mode"][value="quick-send"]');
-  const lst = document.getElementById('id_excel_file');
-  if (lst) lst.setAttribute('data-no-basket', '');
+  if (tpl) tpl.setAttribute('data-no-basket', '');
 })();
 (function () {
   const ALLOWED = ['.xlsx', '.xls', '.csv', '.pdf'];
