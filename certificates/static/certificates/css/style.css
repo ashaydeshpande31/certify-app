@@ -945,3 +945,5 @@ body::before { transform: translateZ(0); }
 .bk-check { display: none; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; background: #1F9D6B; color: #fff; font-size: .8rem; font-weight: 700; }
 .bk-card.added .bk-check { display: inline-flex; }
 .bk-card.in-basket { opacity: 1; }
+.bk-plus.miss { color: #8A94A8; font-size: .95rem; white-space: nowrap; top: 20%; text-shadow: none; }
+.bk-card.dragging { cursor: grabbing; }

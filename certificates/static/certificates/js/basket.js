@@ -80,10 +80,10 @@
       if (!total) return;
       var many = total > 1;
       if (scored === total) status.textContent = '🏀 Nice shot! ' + (many ? 'All ' + total + ' files are' : 'Your file is') + ' attached.';
-      else status.textContent = '✓ ' + (many ? total + ' files' : 'File') + ' attached. Optional: drag ' + (many ? 'a card' : 'the card') + ' into the basket.';
+      else status.textContent = '✓ ' + (many ? total + ' files' : 'File') + ' attached. Optional: pull ' + (many ? 'a card' : 'the card') + ' back and let go to shoot at the basket.';
     }
-    function plusOne() {
-      var t = el('span', 'bk-plus', '+1');
+    function plusOne(txt, miss) {
+      var t = el('span', 'bk-plus' + (miss ? ' miss' : ''), txt || '+1');
       hoopWrap.appendChild(t);
       if (t.animate) {
         var a = t.animate([{ transform: 'translate(-50%,0)', opacity: 1 }, { transform: 'translate(-50%,-46px)', opacity: 0 }], { duration: 800, easing: 'ease-out' });
@@ -107,10 +107,7 @@
         anim.onfinish = (function (n) { return function () { n.remove(); }; })(d);
       }
     }
-    function score(card) {
-      if (card.dataset.done) return;
-      card.dataset.done = '1';
-      var finish = function () {
+    function doFinish(card) {
         card.classList.remove('dragging');
         card.classList.add('in-basket');
         card.style.transform = '';
@@ -126,14 +123,18 @@
         if (reduce) { doneUp(); } else {
           setTimeout(function () { bar.style.width = '100%'; }, 30);
           setTimeout(doneUp, 1000);
-          plusOne();
+          plusOne('+1');
           if (top.animate) top.querySelector('.bk-count').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 400, easing: 'ease-out' });
         }
         if (!reduce && net.animate) {
           net.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(1.18) skewX(5deg)' }, { transform: 'scaleY(.94) skewX(-4deg)' }, { transform: 'scaleY(1)' }], { duration: 520, easing: 'ease-out' });
           confetti();
         }
-      };
+    }
+    function score(card) {
+      if (card.dataset.done) return;
+      card.dataset.done = '1';
+      var finish = function () { doFinish(card); };
       if (reduce || !card.animate) return finish();
       var c = card.getBoundingClientRect(), h = hoop.getBoundingClientRect();
       var base = (card.style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/) || [0, 0, 0]);
@@ -160,39 +161,94 @@
       card.tabIndex = 0;
       card.setAttribute('role', 'button');
       card.dataset.name = file.name;
-      card.setAttribute('aria-label', file.name + '. Press Enter to drop it in the basket, or drag it there.');
-      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + size(file.size) + ' · <span class="bk-hint">Hold me and drop me in the basket</span></small></span><span class="bk-state"><span class="bk-bar"><i></i></span><span class="bk-check">✓</span></span>';
-      var sx = 0, sy = 0, px = 0, py = 0, active = false;
+      card.setAttribute('aria-label', file.name + '. Press Enter to drop it in the basket, or pull it back and let go to shoot.');
+      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + size(file.size) + ' · <span class="bk-hint">Pull me back, let go to shoot</span></small></span><span class="bk-state"><span class="bk-bar"><i></i></span><span class="bk-check">✓</span></span>';
+      var ox = 0, oy = 0, vx = 0, vy = 0, pull = 0, active = false;
+      var K = 6, G = 1400, MAXPULL = 170;               // slingshot: pull back, let go, it flies along the dots
+      function trajectory(vx, vy) {
+        var h = hoop.getBoundingClientRect(), hx = h.left + h.width / 2, hy = h.top + h.height / 2 + 8;
+        var pts = [], hitT = null, t = 0, dt = 0.01, apexSeen = false;
+        while (t < 2.6) {
+          t += dt;
+          var x = vx * t, y = vy * t + 0.5 * G * t * t;
+          pts.push({ t: t, x: x, y: y });
+          if (hitT === null && Math.hypot(ox + x - hx, oy + y - hy) < 34) { hitT = t; break; }
+          if (vy * t + G * t * 0 < 0) apexSeen = true;
+          if (y > 90 && t > 0.15) break;                  // fell back below where it started
+        }
+        return { pts: pts, hitT: hitT };
+      }
+      function drawAim(tr) {
+        var step = Math.max(1, Math.floor(tr.pts.length / (AIM_DOTS + 1)));
+        aim.classList.toggle('hot', tr.hitT !== null);
+        aim.classList.add('on');
+        Array.prototype.forEach.call(aim.children, function (d, i) {
+          var p = tr.pts[Math.min(tr.pts.length - 1, (i + 1) * step - 1)];
+          d.style.left = (ox + p.x) + 'px'; d.style.top = (oy + p.y) + 'px';
+          d.style.transform = 'translate(-50%,-50%) scale(' + (1 - i * 0.04) + ')';
+        });
+      }
       card.addEventListener('pointerdown', function (e) {
         if (card.dataset.done || (e.button && e.button !== 0)) return;
-        active = true; sx = e.clientX; sy = e.clientY;
+        active = true; pull = 0; vx = vy = 0;
+        var r = card.getBoundingClientRect();
+        ox = r.left + r.width / 2; oy = r.top + r.height / 2;
+        sx = e.clientX; sy = e.clientY;
         card.setPointerCapture(e.pointerId);
         card.style.transition = 'none';
         card.classList.add('dragging');
-        px = e.clientX; py = e.clientY;
-        var h0 = hoop.getBoundingClientRect();
-        showAim(px, py, h0.left + h0.width / 2, h0.top + h0.height / 2, false);
         e.preventDefault();
       });
+      var sx = 0, sy = 0;
       card.addEventListener('pointermove', function (e) {
         if (!active) return;
         var dx = e.clientX - sx, dy = e.clientY - sy;
+        pull = Math.hypot(dx, dy);
+        if (pull > MAXPULL) { dx *= MAXPULL / pull; dy *= MAXPULL / pull; pull = MAXPULL; }
         card.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + Math.max(-14, Math.min(14, dx * 0.06)) + 'deg)';
-        px = e.clientX; py = e.clientY;
-        var hot = inHoop(px, py);
-        hoopWrap.classList.toggle('hot', hot);
-        var hr = hoop.getBoundingClientRect();
-        showAim(px, py, hr.left + hr.width / 2, hr.top + hr.height / 2, hot);
+        vx = -dx * K; vy = -dy * K;
+        if (pull < 24) { hideAim(); return; }
+        var tr = trajectory(vx, vy);
+        hoopWrap.classList.toggle('hot', tr.hitT !== null);
+        drawAim(tr);
       });
+      function springBack(fromX, fromY) {
+        card.style.transition = 'none';
+        card.style.transform = 'translate(' + fromX + 'px,' + fromY + 'px)';
+        void card.offsetWidth;
+        card.style.transition = reduce ? 'none' : 'transform .45s cubic-bezier(.3,1.4,.5,1)';
+        card.style.transform = '';
+        card.classList.remove('dragging');
+      }
       function release() {
         if (!active) return;
         active = false;
         hideAim();
         hoopWrap.classList.remove('hot');
-        if (inHoop(px, py) || Math.hypot(px - sx, py - sy) > 40) { score(card); return; }   // let go = shoot along the dots
-        card.classList.remove('dragging');
-        card.style.transition = reduce ? 'none' : 'transform .38s cubic-bezier(.3,1.5,.5,1)';
-        card.style.transform = '';
+        if (pull < 24) { card.classList.remove('dragging'); card.style.transition = 'transform .3s ease'; card.style.transform = ''; return; }
+        var tr = trajectory(vx, vy), pts = tr.pts, last = pts[pts.length - 1];
+        if (reduce || !card.animate) {
+          if (tr.hitT !== null) { card.dataset.done = ''; score(card); } else { plusOne('Miss', true); card.classList.remove('dragging'); card.style.transform = ''; }
+          return;
+        }
+        var every = Math.max(1, Math.floor(pts.length / 24)), frames = [];
+        for (var i = 0; i < pts.length; i += every) {
+          var p = pts[i], f = p.t / last.t;
+          frames.push({ transform: 'translate(' + p.x + 'px,' + p.y + 'px) rotate(' + (f * 320) + 'deg) scale(' + (tr.hitT !== null ? 1 - f * 0.6 : 1) + ')', opacity: tr.hitT !== null ? 1 - f * 0.6 : 1 });
+        }
+        frames.push({ transform: 'translate(' + last.x + 'px,' + last.y + 'px) rotate(320deg) scale(' + (tr.hitT !== null ? 0.4 : 1) + ')', opacity: tr.hitT !== null ? 0.4 : 1 });
+        card.style.transition = 'none';
+        var a = card.animate(frames, { duration: Math.max(380, last.t * 1000), easing: 'linear' });
+        a.onfinish = function () {
+          if (tr.hitT !== null) {
+            card.dataset.done = '1';
+            card.style.transform = ''; card.style.opacity = '';
+            doFinish(card);
+          } else {
+            plusOne('Miss — try again', true);
+            springBack(last.x, last.y);
+          }
+        };
       }
       card.addEventListener('pointerup', release);
       card.addEventListener('pointercancel', release);
