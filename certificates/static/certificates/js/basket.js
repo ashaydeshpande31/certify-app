@@ -32,9 +32,30 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
+  // the dotted path that shows where the file will go while you hold it
+  var AIM_DOTS = 10;
+  var aim = el('div', 'bk-aim');
+  aim.setAttribute('aria-hidden', 'true');
+  for (var k = 0; k < AIM_DOTS; k++) aim.appendChild(el('span'));
+  document.body.appendChild(aim);
+  function showAim(x0, y0, x1, y1, hot) {
+    var cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - 70;   // the path bends upwards, like a shot
+    aim.classList.toggle('hot', !!hot);
+    aim.classList.add('on');
+    Array.prototype.forEach.call(aim.children, function (d, i) {
+      var t = (i + 1) / (AIM_DOTS + 1), u = 1 - t;
+      var x = u * u * x0 + 2 * u * t * cx + t * t * x1, y = u * u * y0 + 2 * u * t * cy + t * t * y1;
+      d.style.left = x + 'px'; d.style.top = y + 'px';
+      d.style.transform = 'translate(-50%,-50%) scale(' + (1 - t * 0.45) + ')';
+    });
+  }
+  function hideAim() { aim.classList.remove('on'); }
+
   inputs.forEach(function (input, idx) {
     var panel = el('div', 'bk-panel');
     panel.hidden = true;
+    var top = el('div', 'bk-top', '<span class="bk-top-title">Take the shot <small>(optional)</small></span><span class="bk-count" aria-hidden="true">Added <b>0</b></span>');
+    var countNum = top.querySelector('b');
     var hoopWrap = el('div', 'bk-hoop-wrap', HOOP);
     var cards = el('div', 'bk-cards');
     var status = el('p', 'bk-status');
@@ -44,6 +65,7 @@
     var foot = el('div', 'bk-foot');
     foot.appendChild(status);
     foot.appendChild(remove);
+    panel.appendChild(top);
     panel.appendChild(hoopWrap);
     panel.appendChild(cards);
     panel.appendChild(foot);
@@ -59,6 +81,14 @@
       var many = total > 1;
       if (scored === total) status.textContent = '🏀 Nice shot! ' + (many ? 'All ' + total + ' files are' : 'Your file is') + ' attached.';
       else status.textContent = '✓ ' + (many ? total + ' files' : 'File') + ' attached. Optional: drag ' + (many ? 'a card' : 'the card') + ' into the basket.';
+    }
+    function plusOne() {
+      var t = el('span', 'bk-plus', '+1');
+      hoopWrap.appendChild(t);
+      if (t.animate) {
+        var a = t.animate([{ transform: 'translate(-50%,0)', opacity: 1 }, { transform: 'translate(-50%,-46px)', opacity: 0 }], { duration: 800, easing: 'ease-out' });
+        a.onfinish = function () { t.remove(); };
+      } else { setTimeout(function () { t.remove(); }, 800); }
     }
     function confetti() {
       var r = hoop.getBoundingClientRect(), host = hoopWrap.getBoundingClientRect();
@@ -87,8 +117,18 @@
         card.style.opacity = '';
         card.setAttribute('aria-label', card.dataset.name + ' is in the basket');
         card.removeAttribute('tabindex');
-        card.querySelector('.bk-hint').textContent = 'In the basket ✓';
         scored++; say();
+        countNum.textContent = scored;
+        var bar = card.querySelector('.bk-bar i'), hint = card.querySelector('.bk-hint');
+        card.classList.add('adding');
+        hint.textContent = 'Adding…';
+        var doneUp = function () { card.classList.remove('adding'); card.classList.add('added'); hint.textContent = 'Added ✓'; };
+        if (reduce) { doneUp(); } else {
+          setTimeout(function () { bar.style.width = '100%'; }, 30);
+          setTimeout(doneUp, 1000);
+          plusOne();
+          if (top.animate) top.querySelector('.bk-count').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 400, easing: 'ease-out' });
+        }
         if (!reduce && net.animate) {
           net.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(1.18) skewX(5deg)' }, { transform: 'scaleY(.94) skewX(-4deg)' }, { transform: 'scaleY(1)' }], { duration: 520, easing: 'ease-out' });
           confetti();
@@ -116,7 +156,7 @@
       card.setAttribute('role', 'button');
       card.dataset.name = file.name;
       card.setAttribute('aria-label', file.name + '. Press Enter to drop it in the basket, or drag it there.');
-      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + size(file.size) + ' · <span class="bk-hint">Drag me into the basket</span></small></span>';
+      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + size(file.size) + ' · <span class="bk-hint">Hold me and drop me in the basket</span></small></span><span class="bk-state"><span class="bk-bar"><i></i></span><span class="bk-check">✓</span></span>';
       var sx = 0, sy = 0, px = 0, py = 0, active = false;
       card.addEventListener('pointerdown', function (e) {
         if (card.dataset.done || (e.button && e.button !== 0)) return;
@@ -124,6 +164,9 @@
         card.setPointerCapture(e.pointerId);
         card.style.transition = 'none';
         card.classList.add('dragging');
+        px = e.clientX; py = e.clientY;
+        var h0 = hoop.getBoundingClientRect();
+        showAim(px, py, h0.left + h0.width / 2, h0.top + h0.height / 2, false);
         e.preventDefault();
       });
       card.addEventListener('pointermove', function (e) {
@@ -131,11 +174,15 @@
         var dx = e.clientX - sx, dy = e.clientY - sy;
         card.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + Math.max(-14, Math.min(14, dx * 0.06)) + 'deg)';
         px = e.clientX; py = e.clientY;
-        hoopWrap.classList.toggle('hot', inHoop(px, py));
+        var hot = inHoop(px, py);
+        hoopWrap.classList.toggle('hot', hot);
+        var hr = hoop.getBoundingClientRect();
+        showAim(px, py, hr.left + hr.width / 2, hr.top + hr.height / 2, hot);
       });
       function release() {
         if (!active) return;
         active = false;
+        hideAim();
         hoopWrap.classList.remove('hot');
         if (inHoop(px, py)) { score(card); return; }
         card.classList.remove('dragging');

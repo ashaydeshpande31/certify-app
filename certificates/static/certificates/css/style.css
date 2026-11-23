@@ -926,3 +926,22 @@ body::before { transform: translateZ(0); }
 .bk-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
 .bk-status { margin: 0; font-size: .85rem; color: var(--text-dim); }
 .bk-remove { margin: 0; }
+
+/* basket game: counter, aim dots, +1, progress row */
+.bk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; text-align: left; }
+.bk-top-title { font-weight: 700; color: var(--text-hi); font-size: .95rem; }
+.bk-top-title small { font-weight: 400; color: var(--text-dim); }
+.bk-count { padding: 4px 12px; border-radius: 999px; background: var(--ink-700); border: 1px solid var(--ink-border); font-size: .78rem; color: var(--text-dim); }
+.bk-count b { color: var(--text-hi); margin-left: 4px; }
+.bk-aim { position: fixed; inset: 0; z-index: 3000; pointer-events: none; opacity: 0; transition: opacity .15s; }
+.bk-aim.on { opacity: 1; }
+.bk-aim span { position: fixed; width: 9px; height: 9px; border-radius: 50%; background: #E8672A; box-shadow: 0 0 0 2px rgba(232, 103, 42, .25); }
+.bk-aim.hot span { background: #3FB68B; box-shadow: 0 0 0 2px rgba(63, 182, 139, .3); }
+.bk-plus { position: absolute; left: 50%; top: 40%; z-index: 4; font-weight: 800; font-size: 1.3rem; color: #E8672A; pointer-events: none; text-shadow: 0 1px 0 #fff; }
+.bk-state { display: inline-flex; align-items: center; gap: 8px; margin-left: 6px; }
+.bk-bar { display: none; width: 76px; height: 6px; border-radius: 6px; background: var(--ink-border); overflow: hidden; }
+.bk-bar i { display: block; height: 100%; width: 0; background: #E8672A; transition: width .95s ease; }
+.bk-card.adding .bk-bar { display: block; }
+.bk-check { display: none; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; background: #1F9D6B; color: #fff; font-size: .8rem; font-weight: 700; }
+.bk-card.added .bk-check { display: inline-flex; }
+.bk-card.in-basket { opacity: 1; }
