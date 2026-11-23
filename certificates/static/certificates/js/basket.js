@@ -7,13 +7,16 @@
   if (!inputs.length) return;
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // colours are set on the shapes themselves, so the basket looks right even before the stylesheet loads
   var HOOP =
-    '<svg class="bk-hoop" viewBox="0 0 120 112" aria-hidden="true">' +
-    '<rect class="bk-board" x="28" y="3" width="64" height="46" rx="5"/>' +
-    '<rect class="bk-board" x="47" y="24" width="26" height="17" rx="2"/>' +
-    '<g class="bk-net"><path d="M33 57 L47 101M45 60 L55 103M60 61 L60 104M75 60 L65 103M87 57 L73 101"/>' +
-    '<path d="M37 71 Q60 77 83 71M41 85 Q60 91 79 85M46 97 Q60 102 74 97"/></g>' +
-    '<ellipse class="bk-rim" cx="60" cy="56" rx="30" ry="6"/></svg>';
+    '<svg class="bk-hoop" viewBox="0 0 140 130" aria-hidden="true">' +
+    '<rect class="bk-board" x="30" y="4" width="80" height="56" rx="6" fill="#ffffff" stroke="#E8672A" stroke-width="3"/>' +
+    '<rect class="bk-board" x="55" y="28" width="30" height="20" rx="3" fill="none" stroke="#E8672A" stroke-width="3"/>' +
+    '<rect x="64" y="58" width="12" height="7" fill="#E8672A"/>' +
+    '<g class="bk-net" fill="none" stroke="#9AA5B8" stroke-width="1.8" stroke-linecap="round" style="transform-origin:50% 0;transform-box:fill-box">' +
+    '<path d="M37 69 L54 117M50 72 L62 120M70 73 L70 121M90 72 L78 120M103 69 L86 117"/>' +
+    '<path d="M42 84 Q70 91 98 84M47 99 Q70 106 93 99M52 112 Q70 118 88 112"/></g>' +
+    '<ellipse class="bk-rim" cx="70" cy="68" rx="35" ry="7" fill="none" stroke="#E8672A" stroke-width="5"/></svg>';
   var DOC =
     '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>';
