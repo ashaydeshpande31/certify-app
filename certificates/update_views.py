@@ -280,6 +280,43 @@ def update_send_batch(request, campaign_id):
 
 @login_required
 @require_POST
+def update_edit_recipient(request, campaign_id, recipient_id):
+    campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
+    r = get_object_or_404(UpdateRecipient, id=recipient_id, campaign=campaign)
+    name = tidy_name(request.POST.get("name", ""))[:200]
+    email = request.POST.get("email", "").strip()
+    try:
+        validate_email(email)
+    except DjangoValidationError:
+        messages.error(request, f'"{email}" doesn\'t look like a valid email address — nothing was changed.')
+        return redirect("update_detail", campaign_id=campaign.id)
+    if not name:
+        name = guess_name_from_email(email)[:200]
+    if UpdateRecipient.objects.filter(campaign=campaign, email__iexact=email).exclude(id=r.id).exists():
+        messages.error(request, f"{email} is already on this list — nothing was changed.")
+        return redirect("update_detail", campaign_id=campaign.id)
+    email_changed = r.email.lower() != email.lower()
+    r.name, r.email = name, email
+    if email_changed and r.status in ("sent", "failed"):
+        r.status, r.error_message = "pending", ""      # a new address has not had the mail yet
+    r.save()
+    messages.success(request, f"Updated {r.name}." + (" They are waiting to be sent again." if email_changed and r.status == "pending" else ""))
+    return redirect("update_detail", campaign_id=campaign.id)
+
+
+@login_required
+@require_POST
+def update_delete_recipient(request, campaign_id, recipient_id):
+    campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
+    r = get_object_or_404(UpdateRecipient, id=recipient_id, campaign=campaign)
+    label = r.email
+    r.delete()
+    messages.success(request, f"Removed {label} from this list.")
+    return redirect("update_detail", campaign_id=campaign.id)
+
+
+@login_required
+@require_POST
 def update_toggle_auto(request, campaign_id):
     campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
     turn_on = request.POST.get("auto") == "on" and campaign.pending_count > 0

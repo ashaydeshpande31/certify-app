@@ -383,6 +383,17 @@ def add_quick_send_student(request, event_id):
 
 @login_required
 @require_POST
+def delete_student(request, event_id, student_id):
+    event = get_object_or_404(Event, id=event_id, owner=request.user)
+    student = get_object_or_404(Student, id=student_id, event=event)
+    label = student.email
+    student.delete()
+    messages.success(request, f"Removed {label} from this list.")
+    return redirect("student_list", event_id=event.id)
+
+
+@login_required
+@require_POST
 def update_student(request, event_id, student_id):
     event = get_object_or_404(Event, id=event_id, owner=request.user)
     student = get_object_or_404(Student, id=student_id, event=event)

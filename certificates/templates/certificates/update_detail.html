@@ -240,11 +240,12 @@
         <th scope="col">Name</th>
         <th scope="col">Email</th>
         <th scope="col">Status</th>
+        <th scope="col"><span class="sr-only">Actions</span></th>
       </tr>
     </thead>
     <tbody>
       {% for r in recipients %}
-      <tr>
+      <tr id="r-view-{{ r.id }}">
         <td class="cell-sno muted">{{ forloop.counter }}</td>
         <td class="cell-name">{{ r.name }}</td>
         <td class="cell-email">{{ r.email }}</td>
@@ -258,14 +259,42 @@
             <span class="seal-badge seal-pending"><span class="dot"></span> Pending</span>
           {% endif %}
         </td>
+        <td style="text-align:right; white-space:nowrap;">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="toggleRecipientEdit({{ r.id }})">Edit</button>
+          <form method="post" action="{% url 'update_delete_recipient' campaign.id r.id %}" style="display:inline;" onsubmit="return confirm('Remove {{ r.email|escapejs }} from this list?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-ghost btn-del" aria-label="Delete {{ r.name }}">Delete</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="r-edit-{{ r.id }}" class="edit-row" style="display:none;">
+        <td colspan="5">
+          <form method="post" action="{% url 'update_edit_recipient' campaign.id r.id %}" class="inline-edit-form">
+            {% csrf_token %}
+            <input type="text" name="name" value="{{ r.name }}" placeholder="Name" aria-label="Name">
+            <input type="email" name="email" value="{{ r.email }}" placeholder="Email" aria-label="Email" required>
+            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="toggleRecipientEdit({{ r.id }})">Cancel</button>
+            {% if r.status == "sent" or r.status == "failed" %}<span class="muted" style="font-size:0.78rem;">A new email address will be marked Pending again so it gets the mail.</span>{% endif %}
+          </form>
+        </td>
       </tr>
       {% empty %}
-      <tr><td colspan="4" class="muted" style="text-align:center;padding:40px;">No recipients.</td></tr>
+      <tr><td colspan="5" class="muted" style="text-align:center;padding:40px;">No recipients.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
+<script>
+function toggleRecipientEdit(id) {
+  var v = document.getElementById('r-view-' + id), e = document.getElementById('r-edit-' + id);
+  if (!v || !e) return;
+  var open = e.style.display === 'none';
+  e.style.display = open ? '' : 'none';
+  if (open) { var i = e.querySelector('input[type=email]'); if (i) i.focus(); }
+}
+</script>
 <script>
 (function () {
   const sendUrl = "{% url 'update_send_batch' campaign.id %}";

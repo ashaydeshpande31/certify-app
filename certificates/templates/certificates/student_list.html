@@ -190,6 +190,10 @@
         {% endif %}
         <td style="text-align:right; white-space:nowrap;">
           <button type="button" class="btn btn-sm btn-ghost" onclick="toggleEditRow({{ student.id }})">Edit</button>
+          <form method="post" action="{% url 'delete_student' event.id student.id %}" style="display:inline;" onsubmit="return confirm('Remove {{ student.email|escapejs }} from this list?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-ghost btn-del" aria-label="Delete {{ student.name }}">Delete</button>
+          </form>
           <form method="post" action="{% url 'send_one' event.id student.id %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit" class="btn btn-sm btn-ghost">{% if student.status == "sent" %}Resend{% else %}Send{% endif %}</button>

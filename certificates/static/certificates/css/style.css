@@ -963,3 +963,10 @@ body::before { transform: translateZ(0); }
 .set-switch input:focus-visible + .set-track { outline: 2px solid var(--accent-soft); outline-offset: 2px; }
 .set-text b { display: block; color: var(--text-hi); }
 @media (prefers-reduced-motion: reduce) { .set-track, .set-knob { transition: none; } }
+.btn-del:hover, .btn-del:focus-visible { color: #E5484D; border-color: #E5484D; }
+@media (max-width: 720px) {
+  .tbl-updates td:nth-child(5) { grid-column: 1 / -1; grid-row: 3; text-align: left !important; margin-top: 8px; display: flex !important; gap: 8px; }
+  .tbl-updates td:nth-child(5) form { display: block !important; flex: 1; }
+  .tbl-updates td:nth-child(5) .btn { width: 100%; min-height: 40px; justify-content: center; }
+  .tbl-updates td:nth-child(5) > .btn { flex: 1; }
+}
