@@ -119,8 +119,7 @@ def update_create(request):
         errors.append("Please write the message you want people to receive.")
     if not list_file and not pasted_text.strip():
         errors.append("Please upload a recipient file, or type/paste at least one email address.")
-    elif list_file and not list_file.name.lower().endswith(LIST_EXTENSIONS):
-        errors.append("The recipient list must be an Excel, CSV, TXT or PDF file.")
+
 
     if len(attach_files) > MAX_ATTACHMENTS:
         errors.append(f"You can attach at most {MAX_ATTACHMENTS} files.")
@@ -139,14 +138,14 @@ def update_create(request):
         except ValueError as exc:
             errors.append(str(exc))
         except Exception:  # noqa: BLE001 - corrupt / unreadable file
-            errors.append("We couldn't read that file. Please upload a valid Excel, CSV, TXT or PDF list.")
+            errors.append("No email found in that file. Please upload an Excel, CSV, TXT or PDF list, or type the emails in the box.")
 
     if not errors:
         rows = rows + _parse_pasted(pasted_text)
     recipients, bad_rows, dupe_rows = _clean_recipients(rows)
     if not errors:
         if not recipients:
-            errors.append("No valid email addresses were found.")
+            errors.append("No email found in that file (or in the typed emails). Upload an Excel, CSV, TXT or PDF list, or type the emails in the box.")
         elif len(recipients) > MAX_RECIPIENTS:
             errors.append(f"That list has {len(recipients)} people — the limit per update is {MAX_RECIPIENTS}.")
 

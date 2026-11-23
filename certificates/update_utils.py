@@ -460,6 +460,9 @@ def parse_recipient_file(upload):
             )
         return people
 
+    if not filename.endswith((".csv", ".txt", ".xlsx", ".xlsm", ".xls")):
+        return []                      # a photo or any other file: nothing to read, so "no email found"
+
     if filename.endswith((".csv", ".txt")):
         try:
             text = raw.decode("utf-8-sig")

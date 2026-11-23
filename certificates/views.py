@@ -124,10 +124,14 @@ def create_event(request):
                     event.delete()
                     messages.error(request, str(exc))
                     return redirect("create_event")
+                except Exception:  # noqa: BLE001 - unreadable file
+                    event.delete()
+                    messages.error(request, "No email found in that file. Please upload an Excel, CSV or PDF list with Name and Email columns.")
+                    return redirect("create_event")
 
                 if not rows:
                     event.delete()
-                    messages.error(request, "No valid student rows found in that Excel sheet.")
+                    messages.error(request, "No email found in that file. Please upload an Excel, CSV or PDF list with Name and Email columns.")
                     return redirect("create_event")
 
                 good, bad, dupes, seen = [], [], [], set()

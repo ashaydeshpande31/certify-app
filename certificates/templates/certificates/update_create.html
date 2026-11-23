@@ -18,7 +18,7 @@
 
   <label for="id_recipients_file">Recipient list <span class="muted">(file — or type emails below)</span></label>
   <div class="file-drop">
-    <input type="file" id="id_recipients_file" name="recipients_file" accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf">
+    <input type="file" id="id_recipients_file" name="recipients_file">
     <div class="file-drop-label">Drop your list here, or click to browse</div>
     <div class="file-drop-sub">Excel, CSV, TXT or PDF — emails can be in any column, headers not required</div>
   </div>
@@ -71,9 +71,7 @@
     let problem = '';
     if (listInput.files.length) {
       const name = listInput.files[0].name.toLowerCase();
-      if (!LIST_EXT.some(function (x) { return name.endsWith(x); })) {
-        problem = 'The recipient list must be an Excel, CSV, TXT or PDF file.';
-      }
+      // any file is accepted; a photo or file with no emails gets a "No email found" message after sending
     }
     if (!problem && attachInput.files.length > MAX_FILES) {
       problem = 'You can attach at most ' + MAX_FILES + ' files.';

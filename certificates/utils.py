@@ -144,6 +144,9 @@ def parse_excel(excel_field):
     if filename.endswith(".pdf"):
         return parse_pdf(excel_field)
 
+    if not filename.endswith((".csv", ".xlsx", ".xlsm", ".xls")):
+        return []                      # a photo or any other file: nothing to read, so "no email found"
+
     excel_field.seek(0)
 
     if filename.endswith(".csv"):
@@ -151,7 +154,10 @@ def parse_excel(excel_field):
         reader = csv.reader(StringIO(text))
         rows = list(reader)
     else:
-        wb = openpyxl.load_workbook(BytesIO(excel_field.read()), data_only=True)
+        try:
+            wb = openpyxl.load_workbook(BytesIO(excel_field.read()), data_only=True)
+        except Exception:  # noqa: BLE001 - not really a spreadsheet
+            return []
         ws = wb.active
         rows = list(ws.iter_rows(values_only=True))
 

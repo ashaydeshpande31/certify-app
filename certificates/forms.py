@@ -9,7 +9,7 @@ class EventCreateForm(forms.ModelForm):
         widgets = {
             "name": forms.TextInput(attrs={"placeholder": "e.g. HackNova 2026 - Participation Certificate"}),
             "organizer": forms.TextInput(attrs={"placeholder": "e.g. College Tech Council (optional)"}),
-            "excel_file": forms.ClearableFileInput(attrs={"accept": ".xlsx,.xls,.csv,.pdf"}),
+            "excel_file": forms.ClearableFileInput(),
             "message": forms.Textarea(
                 attrs={
                     "rows": 4,
@@ -37,12 +37,9 @@ class EventCreateForm(forms.ModelForm):
             return excel_file
 
         if not excel_file:
-            raise forms.ValidationError("Please upload a participant list (.xlsx, .xls, .csv, or .pdf).")
-        name = excel_file.name.lower()
-        if not name.endswith((".xlsx", ".xls", ".csv", ".pdf")):
-            raise forms.ValidationError(
-                "That file doesn't look like a spreadsheet or PDF. Please upload a .xlsx, .xls, .csv, or .pdf file."
-            )
+            raise forms.ValidationError("Please upload a participant list.")
+        # any file type is accepted; a file with no emails in it (a photo, say) gets a friendly
+        # "No email found" message after it is read
         return excel_file
 
 

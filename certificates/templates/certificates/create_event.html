@@ -46,7 +46,7 @@
     <div class="file-drop">
       {{ form.excel_file }}
       <div class="file-drop-label">Drop your participant list here, or click to browse</div>
-      <div class="file-drop-sub">.xlsx, .xls, .csv, or .pdf — first row must have "Name" and "Email" column headers</div>
+      <div class="file-drop-sub">Excel, CSV or PDF with "Name" and "Email" column headers — any file can be chosen</div>
     </div>
     {% if form.excel_file.errors %}
       <div class="field-error">{{ form.excel_file.errors }}</div>
@@ -110,7 +110,7 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
   function currentFileIsValid() {
     if (!excelInput.files.length) return true;
     const name = excelInput.files[0].name.toLowerCase();
-    return ALLOWED.some(function (ext) { return name.endsWith(ext); });
+    return true;                    // any file is accepted; if it holds no emails you get a "No email found" message
   }
 
   function validate() {
