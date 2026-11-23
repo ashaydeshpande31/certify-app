@@ -947,3 +947,6 @@ body::before { transform: translateZ(0); }
 .bk-card.in-basket { opacity: 1; }
 .bk-plus.miss { color: #8A94A8; font-size: .95rem; white-space: nowrap; top: 20%; text-shadow: none; }
 .bk-card.dragging { cursor: grabbing; }
+.check-email { display: flex; gap: 8px; margin-top: 14px; max-width: 460px; }
+.check-email input { flex: 1; min-width: 0; }
+.check-email-note { margin: 8px 0 0; max-width: 460px; font-size: .82rem; color: var(--text-dim); line-height: 1.5; }

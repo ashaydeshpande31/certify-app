@@ -434,6 +434,47 @@ def _lines_to_people(text):
     return people
 
 
+def get_check_email(user):
+    """The address that gets a copy of every send, so you can see it arrived ('' = switched off)."""
+    from .models import SenderSetting
+
+    row = SenderSetting.objects.filter(owner=user).first()
+    if row is not None:
+        return (row.check_email or "").strip()
+    return (getattr(user, "email", "") or "").strip()
+
+
+def _check_name(user, email):
+    full = ""
+    try:
+        full = user.get_full_name().strip()
+    except Exception:  # noqa: BLE001
+        pass
+    return full or guess_name_from_email(email) or "Check copy"
+
+
+def ensure_check_copy_student(event, user):
+    """Certificates: add the organiser's check address to the list (once) if it isn't there."""
+    email = get_check_email(user)
+    if not email or event.students.filter(email__iexact=email).exists():
+        return False
+    from .models import Student
+
+    Student.objects.create(event=event, name=_check_name(user, email), email=email)
+    return True
+
+
+def ensure_check_copy_update(campaign, user):
+    """Updates: same idea for a mail-only campaign."""
+    email = get_check_email(user)
+    if not email or campaign.recipients.filter(email__iexact=email).exists():
+        return False
+    from .models import UpdateRecipient
+
+    UpdateRecipient.objects.create(campaign=campaign, name=_check_name(user, email)[:200], email=email)
+    return True
+
+
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif")
 
 

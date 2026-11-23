@@ -27,7 +27,7 @@ from .utils import (
     send_certificate_email,
     store_template_copy,
 )
-from .update_utils import ALLOWED_ATTACHMENT_EXTENSIONS, BATCH_SIZE, DAILY_LIMIT, IMAGE_EXTENSIONS, guess_content_type, rows_from_photo_emails, sent_last_24h
+from .update_utils import ensure_check_copy_student, get_check_email, ALLOWED_ATTACHMENT_EXTENSIONS, BATCH_SIZE, DAILY_LIMIT, IMAGE_EXTENSIONS, guess_content_type, rows_from_photo_emails, sent_last_24h
 
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,36 @@ def home(request):
     else:
         events = Event.objects.none()
         update_campaigns = UpdateCampaign.objects.none()
-    return render(request, "certificates/home.html", {"events": events, "update_campaigns": update_campaigns})
+    return render(
+        request,
+        "certificates/home.html",
+        {
+            "events": events,
+            "update_campaigns": update_campaigns,
+            "check_email": get_check_email(request.user) if request.user.is_authenticated else "",
+        },
+    )
+
+
+@login_required
+@require_POST
+def save_check_email(request):
+    """Save the address that gets a copy of every send (blank = switch it off)."""
+    from .models import SenderSetting
+
+    email = (request.POST.get("check_email") or "").strip()
+    if email:
+        try:
+            validate_email(email)
+        except DjangoValidationError:
+            messages.error(request, "That email address doesn't look right. Check it and save again.")
+            return redirect("home")
+    SenderSetting.objects.update_or_create(owner=request.user, defaults={"check_email": email})
+    messages.success(
+        request,
+        f"Saved. {email} will get a copy of each send." if email else "Saved. No check copy will be added to your sends.",
+    )
+    return redirect("home")
 
 
 CHUNK_THRESHOLD = 100   # above this many waiting people, recommend sending in rounds
@@ -350,6 +379,7 @@ def send_batch(request, event_id):
     """Send the next few certificates and report progress. The page calls this
     again and again until nothing is left, so no single request runs long."""
     event = get_object_or_404(Event, id=event_id, owner=request.user)
+    ensure_check_copy_student(event, request.user)      # your own address gets a copy, so you can check it arrived
     try:
         limit = max(0, min(int(request.POST.get("limit") or 0), 500))   # "send only this many" (the 50-at-a-time button)
     except ValueError:

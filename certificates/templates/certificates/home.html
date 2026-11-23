@@ -15,6 +15,15 @@
         <a href="/accounts/google/login/?process=login" class="btn btn-primary">Sign in with Google</a>
       {% endif %}
     </div>
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'save_check_email' %}" class="check-email">
+      {% csrf_token %}
+      <label for="check-email" class="sr-only">Email that gets a copy of every send</label>
+      <input type="email" id="check-email" name="check_email" value="{{ check_email }}" placeholder="yourname@gmail.com" autocomplete="email" maxlength="254">
+      <button type="submit" class="btn btn-sm btn-ghost">Save</button>
+    </form>
+    <p class="check-email-note">This email is added by default each time you send certificates or updates, if it isn't already in the participant list, so you can check that the message was sent. Clear it and save to switch this off.</p>
+    {% endif %}
   </div>
   <div class="hero-art" aria-hidden="true">
     <div class="mock-cert">

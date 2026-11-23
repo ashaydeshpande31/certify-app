@@ -182,3 +182,15 @@ class UpdateAttachment(models.Model):
 
     def __str__(self):
         return self.filename
+
+
+class SenderSetting(models.Model):
+    """Per-user settings. `check_email` is the address that quietly gets a copy of every
+    certificate / update batch, so the organiser can see the mail really arrived.
+    No row = use the Google account's own address; a row with a blank address = switched off."""
+
+    owner = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sender_setting")
+    check_email = models.EmailField(blank=True)
+
+    def __str__(self):
+        return f"{self.owner}: {self.check_email or 'no check copy'}"

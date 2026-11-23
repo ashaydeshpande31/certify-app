@@ -23,6 +23,7 @@ from .email_tools import suggest_email, tidy_name
 from .name_guess import guess_name_from_email
 from .models import Event, Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
 from .update_utils import (
+    ensure_check_copy_update,
     IMAGE_EXTENSIONS,
     rows_from_photo_emails,
     ALLOWED_ATTACHMENT_EXTENSIONS,
@@ -166,6 +167,7 @@ def update_create(request):
         UpdateRecipient.objects.bulk_create(
             [UpdateRecipient(campaign=campaign, name=r["name"], email=r["email"]) for r in recipients]
         )
+        ensure_check_copy_update(campaign, request.user)     # your own address gets a copy, so you can check it arrived
         for f in attach_files:
             f.seek(0)
             data = f.read()
