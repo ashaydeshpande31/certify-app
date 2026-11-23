@@ -434,6 +434,23 @@ def _lines_to_people(text):
     return people
 
 
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif")
+
+
+def rows_from_photo_emails(text):
+    """The browser reads a photo and posts the emails it found (one per line). Turn them into
+    people, guessing a name from each address."""
+    rows, seen = [], set()
+    for m in _EMAIL_RE.finditer(text or ""):
+        email = m.group(0).rstrip(".,;:")
+        if email.lower() in seen:
+            continue
+        seen.add(email.lower())
+        name = guess_name_from_email(email) or re.sub(r"[^A-Za-z]+", " ", email.split("@")[0]).strip().title()
+        rows.append({"name": name, "email": email})
+    return rows
+
+
 def parse_recipient_file(upload):
     """Read .xlsx/.xlsm/.csv/.txt/.pdf and return [{'name','email'}].
     No fixed layout needed. Raises ValueError with a friendly message."""

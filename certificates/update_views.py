@@ -23,6 +23,8 @@ from .email_tools import suggest_email, tidy_name
 from .name_guess import guess_name_from_email
 from .models import Event, Student, UpdateAttachment, UpdateCampaign, UpdateRecipient
 from .update_utils import (
+    IMAGE_EXTENSIONS,
+    rows_from_photo_emails,
     ALLOWED_ATTACHMENT_EXTENSIONS,
     MAX_ATTACHMENTS,
     MAX_RECIPIENTS,
@@ -134,7 +136,10 @@ def update_create(request):
     rows = []
     if list_file and not errors:
         try:
-            rows = parse_recipient_file(list_file)
+            if list_file.name.lower().endswith(IMAGE_EXTENSIONS):
+                rows = rows_from_photo_emails(request.POST.get("photo_emails", ""))   # read from the photo in the browser
+            else:
+                rows = parse_recipient_file(list_file)
         except ValueError as exc:
             errors.append(str(exc))
         except Exception:  # noqa: BLE001 - corrupt / unreadable file

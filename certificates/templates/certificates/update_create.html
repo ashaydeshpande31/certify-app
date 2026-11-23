@@ -1,4 +1,5 @@
 {% extends "certificates/base.html" %}
+{% load static %}
 {% block title %}Send an update{% endblock %}
 {% block content %}
 
@@ -23,6 +24,7 @@
     <div class="file-drop-sub">Excel, CSV, TXT or PDF — emails can be in any column, headers not required</div>
   </div>
   <div id="list-file-error" class="field-error" style="display:none;"></div>
+  <input type="hidden" name="photo_emails" id="photo_emails" value="">
   <div class="help-text">Duplicate emails are sent only once, and rows with an invalid email are skipped.</div>
 
   <label for="id_pasted_emails">Or type / paste emails <span class="muted">(optional)</span></label>
@@ -43,6 +45,7 @@
   </div>
 </form>
 
+<script src="{% static 'certificates/js/photo_list.js' %}"></script>
 <script>
 (function () {
   const LIST_EXT = ['.xlsx', '.xlsm', '.xls', '.csv', '.txt', '.pdf'];
@@ -57,12 +60,26 @@
   function labelOf(input) { return input.closest('.file-drop').querySelector('.file-drop-label'); }
   const attachDefault = labelOf(attachInput).textContent;
 
+  function showPhoto() {
+    const f = listInput.files[0];
+    const p = listInput._photo && listInput._photo.state !== 'idle' ? listInput._photo : { state: 'reading', emails: [] };
+    const m = PhotoList.message(f, p, f.name);
+    PhotoList.paint(listError, m);
+    listInput.closest('.file-drop').classList.toggle('file-drop-invalid', m.kind === 'err');
+    return p.state;
+  }
+  if (window.PhotoList) PhotoList.attach(listInput, document.getElementById('photo_emails'), function () {
+    if (listInput.files[0] && PhotoList.isImage(listInput.files[0])) showPhoto();
+  });
+
   listInput.addEventListener('change', function () {
     if (listInput.files.length) labelOf(listInput).textContent = listInput.files[0].name;
-    // any file can be chosen, but a photo has no emails Certify can read: say so in red right away
+    // a photo: its emails are read in the browser, usually within a second or two
     const f = listInput.files[0];
+    if (f && window.PhotoList && PhotoList.isImage(f)) { showPhoto(); return; }
     const readable = !f || LIST_EXT.some(function (x) { return f.name.toLowerCase().endsWith(x); });
-    listError.textContent = readable ? '' : 'No email found in "' + f.name + '" — photos and other files can\'t be read. Choose an Excel, CSV, TXT or PDF list, or type the emails below.';
+    listError.textContent = readable ? '' : 'No email found in "' + f.name + '" — other file types can\'t be read. Choose an Excel, CSV, TXT or PDF list, a photo of the emails, or type the emails below.';
+    listError.style.color = '';
     listError.style.display = readable ? 'none' : 'block';
     listInput.closest('.file-drop').classList.toggle('file-drop-invalid', !readable);
   });
@@ -77,8 +94,12 @@
     let problem = '';
     if (listInput.files.length) {
       const name = listInput.files[0].name.toLowerCase();
-      if (!LIST_EXT.some(function (x) { return name.endsWith(x); })) {
-        problem = 'No email found in "' + listInput.files[0].name + '" — photos and other files can\'t be read. Choose an Excel, CSV, TXT or PDF list, or remove the file and type the emails below.';
+      if (window.PhotoList && PhotoList.isImage(listInput.files[0])) {
+        const st = showPhoto();
+        if (st === 'reading') problem = 'Still reading the photo — give it a second, then press Send again.';
+        else if (st !== 'found') problem = listError.textContent;
+      } else if (!LIST_EXT.some(function (x) { return name.endsWith(x); })) {
+        problem = 'No email found in "' + listInput.files[0].name + '" — other file types can\'t be read. Choose an Excel, CSV, TXT or PDF list, a photo of the emails, or remove the file and type the emails below.';
       }
     }
     if (!problem && attachInput.files.length > MAX_FILES) {

@@ -1,4 +1,5 @@
 {% extends "certificates/base.html" %}
+{% load static %}
 {% block title %}Send certificates{% endblock %}
 {% block description %}Create an event, upload your certificate design and your participant list.{% endblock %}
 {% block content %}
@@ -52,6 +53,7 @@
       <div class="field-error">{{ form.excel_file.errors }}</div>
     {% endif %}
     <div id="excel-file-error" class="field-error" role="alert" style="display:none;"></div>
+    <input type="hidden" name="photo_emails" id="photo_emails" value="">
     <div class="help-text">Tip: if you're collecting responses through a Google Form, download the linked Google Sheet as .xlsx and upload it here. A PDF works too, but only if it's exported directly from a spreadsheet or form — not a photo or scan of a printed page.</div>
   </div>
 
@@ -69,6 +71,7 @@
   </div>
 </form>
 
+<script src="{% static 'certificates/js/photo_list.js' %}"></script>
 <script>
 document.querySelectorAll('.file-drop input[type=file]').forEach(function (input) {
   input.addEventListener('change', function () {
@@ -121,6 +124,16 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
       submitBtn.disabled = false;
       return true;
     }
+    const picked = excelInput.files[0];
+    if (picked && window.PhotoList && PhotoList.isImage(picked)) {
+      // a photo: its emails are read in the browser, usually within a second or two
+      const p = excelInput._photo && excelInput._photo.state !== 'idle' ? excelInput._photo : { state: 'reading', emails: [] };
+      const m = PhotoList.message(picked, p, picked.name);
+      PhotoList.paint(errorBox, m);
+      excelInput.closest('.file-drop').classList.toggle('file-drop-invalid', m.kind === 'err');
+      submitBtn.disabled = false;
+      return p.state === 'found';
+    }
     if (excelInput.files.length && !currentFileIsValid()) {
       // any file can be chosen, but a photo has no emails Certify can read: say so in red right away
       errorBox.textContent = 'No email found in "' + excelInput.files[0].name + '" — photos and other files can\'t be read. Choose an Excel, CSV or PDF list with Name and Email columns.';
@@ -151,6 +164,7 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
     }
   });
 
+  if (window.PhotoList) PhotoList.attach(excelInput, document.getElementById('photo_emails'), validate);
   updateModeDisplay();
 })();
 </script>

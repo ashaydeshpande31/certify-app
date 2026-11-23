@@ -27,7 +27,7 @@ from .utils import (
     send_certificate_email,
     store_template_copy,
 )
-from .update_utils import ALLOWED_ATTACHMENT_EXTENSIONS, DAILY_LIMIT, guess_content_type, sent_last_24h
+from .update_utils import ALLOWED_ATTACHMENT_EXTENSIONS, DAILY_LIMIT, IMAGE_EXTENSIONS, guess_content_type, rows_from_photo_emails, sent_last_24h
 
 
 logger = logging.getLogger(__name__)
@@ -112,7 +112,11 @@ def create_event(request):
             rows = []
             if not is_quick_send:
                 try:
-                    rows = parse_excel(form.cleaned_data["excel_file"])
+                    up = form.cleaned_data["excel_file"]
+                    if (up.name or "").lower().endswith(IMAGE_EXTENSIONS):
+                        rows = rows_from_photo_emails(request.POST.get("photo_emails", ""))   # read from the photo in the browser
+                    else:
+                        rows = parse_excel(up)
                 except ValueError as exc:
                     messages.error(request, str(exc))
                     return redirect("create_event")
