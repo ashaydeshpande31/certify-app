@@ -280,11 +280,17 @@
       }
       scored = 0;
       total = input.files ? input.files.length : 0;
-      if (!total) { panel.hidden = true; return; }
+      if (!total || !allowed()) { panel.hidden = true; return; }
       Array.prototype.forEach.call(input.files, function (f) { cards.appendChild(makeCard(f)); });
       panel.hidden = false;
       say();
     }
+    // data-basket-needs="#id": the game only shows while that text box has something in it
+    // (update page: only when emails are typed in, i.e. quick send, and a file is attached)
+    var needEl = input.getAttribute && input.getAttribute('data-basket-needs') ? document.querySelector(input.getAttribute('data-basket-needs')) : null;
+    function allowed() { return !needEl || needEl.value.trim() !== ''; }
+    var wasAllowed = allowed();
+    if (needEl) needEl.addEventListener('input', function () { var a = allowed(); if (a !== wasAllowed) { wasAllowed = a; rebuild(); } });
     var pscore = 0;
     input.addEventListener('change', rebuild);
     if (practice) rebuild();
