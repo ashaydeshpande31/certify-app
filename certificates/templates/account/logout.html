@@ -1,0 +1,14 @@
+{% extends "certificates/base.html" %}
+{% block title %}Sign out{% endblock %}
+{% block content %}
+<div class="form-card" style="max-width:460px;margin:40px auto;text-align:center;">
+  <h2 style="margin-top:0;">Sign out of Certify?</h2>
+  <p class="muted">{% if is_guest %}You're in the demo. Your demo events are removed after 24 hours.{% else %}Your events and lists stay saved. Sign in again any time.{% endif %}</p>
+  <form method="post" action="{% url 'account_logout' %}" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px;">
+    {% csrf_token %}
+    {{ redirect_field }}
+    <button type="submit" class="btn btn-primary">Sign out</button>
+    <a href="{% url 'home' %}" class="btn btn-ghost">Stay signed in</a>
+  </form>
+</div>
+{% endblock %}
