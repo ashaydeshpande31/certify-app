@@ -133,14 +133,11 @@
     <form method="post" action="{% url 'event_extra_upload' event.id %}" enctype="multipart/form-data" class="extra-upload">
       {% csrf_token %}
       <label for="extra_file" class="sr-only">Extra file</label>
-      <input type="file" id="extra_file" name="extra_file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" required{% if not event.is_quick_send %} data-no-basket{% endif %}>
+      <input type="file" id="extra_file" name="extra_file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" required>
       <button type="submit" class="btn btn-sm btn-primary">Add file</button>
     </form>
   {% endif %}
 </section>
-{% if not event.is_quick_send %}
-<div data-basket-play style="margin-bottom:24px;"></div>
-{% endif %}
 
 <div class="table-card">
   <table class="tbl-students">
