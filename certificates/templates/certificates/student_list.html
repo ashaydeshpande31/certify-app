@@ -117,6 +117,31 @@
 </form>
 {% endif %}
 
+<section class="form-card extra-card" style="margin-bottom:24px;" aria-labelledby="extra-title">
+  <h3 id="extra-title" style="margin:0 0 4px;font-size:1rem;">Extra attachment <span class="muted" style="font-weight:400;">(optional)</span></h3>
+  {% if event.extra_name %}
+    <p class="muted" style="margin:0 0 10px;">Sent with the certificate to the people you tick below. Everyone gets their own certificate either way.</p>
+    <div class="extra-file"><span class="extra-icon" aria-hidden="true">📎</span><b>{{ event.extra_name }}</b>
+      <span class="muted">{{ extra_count }} of {{ students|length }} will get it</span></div>
+    <div class="extra-actions">
+      <form method="post" action="{% url 'event_extra_assign' event.id %}">{% csrf_token %}<input type="hidden" name="mode" value="all"><button type="submit" class="btn btn-sm btn-ghost">Everyone</button></form>
+      <form method="post" action="{% url 'event_extra_assign' event.id %}">{% csrf_token %}<input type="hidden" name="mode" value="none"><button type="submit" class="btn btn-sm btn-ghost">Nobody</button></form>
+      <form method="post" action="{% url 'event_extra_remove' event.id %}">{% csrf_token %}<button type="submit" class="btn btn-sm btn-ghost">Remove file</button></form>
+    </div>
+  {% else %}
+    <p class="muted" style="margin:0 0 10px;">Add a poster, guide or any file (up to 3 MB) and choose which people get it together with their certificate.</p>
+    <form method="post" action="{% url 'event_extra_upload' event.id %}" enctype="multipart/form-data" class="extra-upload">
+      {% csrf_token %}
+      <label for="extra_file" class="sr-only">Extra file</label>
+      <input type="file" id="extra_file" name="extra_file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" required{% if not event.is_quick_send %} data-no-basket{% endif %}>
+      <button type="submit" class="btn btn-sm btn-primary">Add file</button>
+    </form>
+  {% endif %}
+</section>
+{% if not event.is_quick_send %}
+<div data-basket-play style="margin-bottom:24px;"></div>
+{% endif %}
+
 <div class="table-card">
   <table class="tbl-students">
     <thead>
@@ -126,6 +151,7 @@
         <th scope="col">Email</th>
         <th scope="col">Status</th>
         <th scope="col">Certificate</th>
+        {% if event.extra_name %}<th scope="col">Extra file</th>{% endif %}
         <th scope="col"></th>
       </tr>
     </thead>
@@ -149,6 +175,11 @@
         <td>
           <a href="{% url 'student_certificate_pdf' event.id student.id %}" target="_blank" rel="noopener" style="color:var(--gold-300);" aria-label="Preview certificate PDF for {{ student.name }}">Preview PDF</a>
         </td>
+        {% if event.extra_name %}
+        <td>
+          <label class="extra-check"><input type="checkbox" class="extra-toggle" data-url="{% url 'student_toggle_extra' event.id student.id %}" {% if student.send_extra %}checked{% endif %} {% if student.status == "sent" %}disabled{% endif %} aria-label="Also send {{ event.extra_name }} to {{ student.name }}"> <span>Send extra file</span></label>
+        </td>
+        {% endif %}
         <td style="text-align:right; white-space:nowrap;">
           <button type="button" class="btn btn-sm btn-ghost" onclick="toggleEditRow({{ student.id }})">Edit</button>
           <form method="post" action="{% url 'send_one' event.id student.id %}" style="display:inline;">
@@ -158,7 +189,7 @@
         </td>
       </tr>
       <tr id="edit-row-{{ student.id }}" class="edit-row" style="display:none;">
-        <td colspan="6">
+        <td colspan="{% if event.extra_name %}7{% else %}6{% endif %}">
           <form method="post" action="{% url 'update_student' event.id student.id %}" class="inline-edit-form">
             {% csrf_token %}
             <input type="text" name="name" value="{{ student.name }}" placeholder="Name" required>
@@ -274,5 +305,18 @@ function toggleEditRow(studentId) {
     if (ok) run();
   });
 })();
+</script>
+<script>
+document.querySelectorAll('.extra-toggle').forEach(function (box) {
+  box.addEventListener('change', function () {
+    const token = document.querySelector('input[name=csrfmiddlewaretoken]');
+    const fd = new FormData(); fd.append('value', box.checked ? '1' : '0');
+    box.disabled = true;
+    fetch(box.dataset.url, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': token ? token.value : '' }, body: fd })
+      .then(function (r) { if (!r.ok) throw new Error(); })
+      .catch(function () { box.checked = !box.checked; alert('Could not save that. Try again.'); })
+      .finally(function () { box.disabled = false; });
+  });
+});
 </script>
 {% endblock %}

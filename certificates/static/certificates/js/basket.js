@@ -3,7 +3,10 @@
    nothing: the file is attached the moment it is chosen. */
 (function () {
   'use strict';
-  var inputs = document.querySelectorAll('input[type=file]');
+  var inputs = Array.prototype.filter.call(document.querySelectorAll('input[type=file]'), function (i) { return !i.hasAttribute('data-no-basket'); });
+  // [data-basket-play] = a game that is always there (no file needed), used on the participant list
+  var hosts = Array.prototype.slice.call(document.querySelectorAll('[data-basket-play]'));
+  hosts.forEach(function (h) { var f = document.createElement('input'); f.type = 'file'; f._host = h; inputs.push(f); });
   if (!inputs.length) return;
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -69,8 +72,16 @@
     panel.appendChild(hoopWrap);
     panel.appendChild(cards);
     panel.appendChild(foot);
-    var anchor = input.closest('.file-drop') || input;
-    anchor.parentNode.insertBefore(panel, anchor.nextSibling);
+    var practice = !!input._host;
+    if (practice) {
+      input._host.appendChild(panel);
+      remove.hidden = true; remove.style.display = 'none';
+      top.querySelector('.bk-top-title').innerHTML = 'Just for fun <small>(nothing here is sent)</small>';
+      top.querySelector('.bk-count').firstChild.nodeValue = 'Score ';
+    } else {
+      var anchor = input.closest('.file-drop') || input;
+      anchor.parentNode.insertBefore(panel, anchor.nextSibling);
+    }
 
     var hoop = hoopWrap.querySelector('.bk-rim');
     var net = hoopWrap.querySelector('.bk-net');
@@ -78,6 +89,7 @@
 
     function say() {
       if (!total) return;
+      if (practice) { status.textContent = scored >= total ? '🏀 Nice shot! Here comes another file.' : 'Pull the file back and let go to shoot. Miss? Try again.'; return; }
       var many = total > 1;
       if (scored === total) status.textContent = '🏀 Nice shot! ' + (many ? 'All ' + total + ' files are' : 'Your file is') + ' attached.';
       else status.textContent = '✓ ' + (many ? total + ' files' : 'File') + ' attached. Optional: pull ' + (many ? 'a card' : 'the card') + ' back and let go to shoot at the basket.';
@@ -115,7 +127,7 @@
         card.setAttribute('aria-label', card.dataset.name + ' is in the basket');
         card.removeAttribute('tabindex');
         scored++; say();
-        countNum.textContent = scored;
+        if (practice) { pscore++; countNum.textContent = pscore; } else countNum.textContent = scored;
         var bar = card.querySelector('.bk-bar i'), hint = card.querySelector('.bk-hint');
         card.classList.add('adding');
         hint.textContent = 'Adding…';
@@ -126,6 +138,7 @@
           plusOne('+1');
           if (top.animate) top.querySelector('.bk-count').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 400, easing: 'ease-out' });
         }
+        if (practice) setTimeout(rebuild, 1700);
         if (!reduce && net.animate) {
           net.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(1.18) skewX(5deg)' }, { transform: 'scaleY(.94) skewX(-4deg)' }, { transform: 'scaleY(1)' }], { duration: 520, easing: 'ease-out' });
           confetti();
@@ -162,7 +175,7 @@
       card.setAttribute('role', 'button');
       card.dataset.name = file.name;
       card.setAttribute('aria-label', file.name + '. Press Enter to drop it in the basket, or pull it back and let go to shoot.');
-      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + size(file.size) + ' · <span class="bk-hint">Pull me back, let go to shoot</span></small></span><span class="bk-state"><span class="bk-bar"><i></i></span><span class="bk-check">✓</span></span>';
+      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + (file.size ? size(file.size) + ' · ' : '') + '<span class="bk-hint">Pull me back, let go to shoot</span></small></span><span class="bk-state"><span class="bk-bar"><i></i></span><span class="bk-check">✓</span></span>';
       var ox = 0, oy = 0, vx = 0, vy = 0, pull = 0, active = false;
       var K = 6, G = 1400, MAXPULL = 170;               // slingshot: pull back, let go, it flies along the dots
       function trajectory(vx, vy) {
@@ -259,6 +272,12 @@
     }
     function rebuild() {
       cards.textContent = '';
+      if (practice) {
+        scored = 0; total = 1;
+        cards.appendChild(makeCard({ name: 'Practice file.pdf', size: 0 }));
+        panel.hidden = false; say();
+        return;
+      }
       scored = 0;
       total = input.files ? input.files.length : 0;
       if (!total) { panel.hidden = true; return; }
@@ -266,7 +285,9 @@
       panel.hidden = false;
       say();
     }
+    var pscore = 0;
     input.addEventListener('change', rebuild);
+    if (practice) rebuild();
     remove.addEventListener('click', function () {
       input.value = '';
       input.dispatchEvent(new Event('change', { bubbles: true }));
