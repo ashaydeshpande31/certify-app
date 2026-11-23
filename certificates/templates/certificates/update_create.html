@@ -59,6 +59,12 @@
 
   listInput.addEventListener('change', function () {
     if (listInput.files.length) labelOf(listInput).textContent = listInput.files[0].name;
+    // any file can be chosen, but a photo has no emails Certify can read: say so in red right away
+    const f = listInput.files[0];
+    const readable = !f || LIST_EXT.some(function (x) { return f.name.toLowerCase().endsWith(x); });
+    listError.textContent = readable ? '' : 'No email found in "' + f.name + '" — photos and other files can\'t be read. Choose an Excel, CSV, TXT or PDF list, or type the emails below.';
+    listError.style.display = readable ? 'none' : 'block';
+    listInput.closest('.file-drop').classList.toggle('file-drop-invalid', !readable);
   });
 
   attachInput.addEventListener('change', function () {
@@ -71,7 +77,9 @@
     let problem = '';
     if (listInput.files.length) {
       const name = listInput.files[0].name.toLowerCase();
-      // any file is accepted; a photo or file with no emails gets a "No email found" message after sending
+      if (!LIST_EXT.some(function (x) { return name.endsWith(x); })) {
+        problem = 'No email found in "' + listInput.files[0].name + '" — photos and other files can\'t be read. Choose an Excel, CSV, TXT or PDF list, or remove the file and type the emails below.';
+      }
     }
     if (!problem && attachInput.files.length > MAX_FILES) {
       problem = 'You can attach at most ' + MAX_FILES + ' files.';

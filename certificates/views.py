@@ -107,6 +107,20 @@ def create_event(request):
         is_quick_send = request.POST.get("participant-mode") == "quick-send"
         form = EventCreateForm(request.POST, request.FILES, is_quick_send=is_quick_send)
         if form.is_valid():
+            # Read the participant list FIRST (before saving anything), so a photo or an empty file
+            # is rejected straight away instead of after the design image has been stored.
+            rows = []
+            if not is_quick_send:
+                try:
+                    rows = parse_excel(form.cleaned_data["excel_file"])
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return redirect("create_event")
+                except Exception:  # noqa: BLE001 - unreadable file
+                    rows = []
+                if not rows:
+                    messages.error(request, "No email found in that file. Please upload an Excel, CSV or PDF list with Name and Email columns.")
+                    return redirect("create_event")
             event = form.save(commit=False)
             event.owner = request.user
             event.is_quick_send = is_quick_send
@@ -118,22 +132,6 @@ def create_event(request):
             
             # Only parse and import students if NOT in quick-send mode
             if not is_quick_send:
-                try:
-                    rows = parse_excel(event.excel_file)
-                except ValueError as exc:
-                    event.delete()
-                    messages.error(request, str(exc))
-                    return redirect("create_event")
-                except Exception:  # noqa: BLE001 - unreadable file
-                    event.delete()
-                    messages.error(request, "No email found in that file. Please upload an Excel, CSV or PDF list with Name and Email columns.")
-                    return redirect("create_event")
-
-                if not rows:
-                    event.delete()
-                    messages.error(request, "No email found in that file. Please upload an Excel, CSV or PDF list with Name and Email columns.")
-                    return redirect("create_event")
-
                 good, bad, dupes, seen = [], [], [], set()
                 for r in rows:
                     name = tidy_name(r["name"])

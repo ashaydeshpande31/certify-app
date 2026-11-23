@@ -110,7 +110,7 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
   function currentFileIsValid() {
     if (!excelInput.files.length) return true;
     const name = excelInput.files[0].name.toLowerCase();
-    return true;                    // any file is accepted; if it holds no emails you get a "No email found" message
+    return ALLOWED.concat(['.xlsm', '.txt']).some(function (ext) { return name.endsWith(ext); });
   }
 
   function validate() {
@@ -122,11 +122,12 @@ document.querySelectorAll('.file-drop input[type=file]').forEach(function (input
       return true;
     }
     if (excelInput.files.length && !currentFileIsValid()) {
-      errorBox.textContent = 'Only .xlsx, .xls, .csv, or .pdf files are supported for the participant list. "' + excelInput.files[0].name + '" isn\'t one of those — please choose a different file.';
+      // any file can be chosen, but a photo has no emails Certify can read: say so in red right away
+      errorBox.textContent = 'No email found in "' + excelInput.files[0].name + '" — photos and other files can\'t be read. Choose an Excel, CSV or PDF list with Name and Email columns.';
       errorBox.style.display = 'block';
       excelInput.closest('.file-drop').classList.add('file-drop-invalid');
-      submitBtn.disabled = true;
-      return false;
+      submitBtn.disabled = false;
+      return false;                 // stop here, instantly — no round trip to the server
     }
     errorBox.style.display = 'none';
     excelInput.closest('.file-drop').classList.remove('file-drop-invalid');
