@@ -950,3 +950,16 @@ body::before { transform: translateZ(0); }
 .check-email { display: flex; gap: 8px; margin-top: 14px; max-width: 460px; }
 .check-email input { flex: 1; min-width: 0; }
 .check-email-note { margin: 8px 0 0; max-width: 460px; font-size: .82rem; color: var(--text-dim); line-height: 1.5; }
+.settings-link { text-decoration: none; display: inline-flex; align-items: center; }
+.settings-card { max-width: 560px; }
+.set-row { margin-bottom: 20px; }
+.set-row small { display: block; margin-top: 6px; color: var(--text-dim); line-height: 1.5; }
+.set-switch { display: flex; gap: 14px; align-items: flex-start; cursor: pointer; }
+.set-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.set-track { flex: 0 0 auto; width: 46px; height: 26px; border-radius: 26px; background: var(--ink-border); position: relative; transition: background .2s; margin-top: 2px; }
+.set-knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.set-switch input:checked + .set-track { background: #3FB68B; }
+.set-switch input:checked + .set-track .set-knob { transform: translateX(20px); }
+.set-switch input:focus-visible + .set-track { outline: 2px solid var(--accent-soft); outline-offset: 2px; }
+.set-text b { display: block; color: var(--text-hi); }
+@media (prefers-reduced-motion: reduce) { .set-track, .set-knob { transition: none; } }

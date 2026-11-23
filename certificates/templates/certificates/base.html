@@ -67,6 +67,7 @@
     {% else %}
     <a href="/accounts/google/login/?process=login" class="nav-cta nav-signin">Sign in with Google</a>
     {% endif %}
+    {% if user.is_authenticated %}<a href="{% url 'settings' %}" class="theme-toggle settings-link" aria-label="Settings" title="Settings"><span aria-hidden="true">⚙️</span></a>{% endif %}
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch between dark and light theme"><span aria-hidden="true">🌙</span></button>
   </div>
 </header>

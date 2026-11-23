@@ -191,6 +191,8 @@ class SenderSetting(models.Model):
 
     owner = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sender_setting")
     check_email = models.EmailField(blank=True)
+    check_disabled = models.BooleanField(default=False)      # True = no check copy is added at all
+    recommend_chunks = models.BooleanField(default=True)     # the "send 50 at a time" advice for big lists
 
     def __str__(self):
-        return f"{self.owner}: {self.check_email or 'no check copy'}"
+        return f"{self.owner}: {self.check_email or 'account email'}"

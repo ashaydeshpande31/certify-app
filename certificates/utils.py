@@ -496,7 +496,13 @@ def send_certificate_batch(event, sender, batch_size=None, budget=None, start=Fa
     sent = failed = 0
     stop = False
     last_error = ""
-    ids = list(students.filter(status__in=["pending", "generated"]).values_list("id", flat=True)[:batch_size])
+    todo = students.filter(status__in=["pending", "generated"])
+    check = _uu.get_check_email(event.owner)
+    if check:      # your own check copy goes out first, so you can see right away that mail is flowing
+        from django.db.models import Case, IntegerField, When
+
+        todo = todo.annotate(_first=Case(When(email__iexact=check, then=0), default=1, output_field=IntegerField())).order_by("_first", "name")
+    ids = list(todo.values_list("id", flat=True)[:batch_size])
     for sid in ids:
         if time.monotonic() - started > budget:
             break

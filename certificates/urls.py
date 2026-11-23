@@ -19,6 +19,7 @@ urlpatterns = [
     path("event/<int:event_id>/extra/remove/", views.event_extra_remove, name="event_extra_remove"),
     path("event/<int:event_id>/extra/assign/", views.event_extra_assign, name="event_extra_assign"),
     path("event/<int:event_id>/students/<int:student_id>/extra/", views.student_toggle_extra, name="student_toggle_extra"),
+    path("settings/", views.settings_page, name="settings"),
     path("check-email/", views.save_check_email, name="save_check_email"),
     path("event/<int:event_id>/send-batch/", views.send_batch, name="send_batch"),
     path("event/<int:event_id>/students/<int:student_id>/certificate.pdf", views.student_certificate_pdf, name="student_certificate_pdf"),

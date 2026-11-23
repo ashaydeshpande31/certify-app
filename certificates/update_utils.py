@@ -279,9 +279,13 @@ def send_update_batch(campaign, sender, batch_size=BATCH_SIZE, budget=TIME_BUDGE
     stop = False
     last_error = ""
 
-    ids = list(
-        campaign.recipients.filter(status="pending").values_list("id", flat=True)[:batch_size]
-    )
+    todo = campaign.recipients.filter(status="pending")
+    check = get_check_email(sender)
+    if check:      # your own check copy goes out first
+        from django.db.models import Case, IntegerField, When
+
+        todo = todo.annotate(_first=Case(When(email__iexact=check, then=0), default=1, output_field=IntegerField())).order_by("_first", "id")
+    ids = list(todo.values_list("id", flat=True)[:batch_size])
     for rid in ids:
         if time.monotonic() - started > budget:
             break  # the page will simply ask for the next batch
@@ -440,8 +444,19 @@ def get_check_email(user):
 
     row = SenderSetting.objects.filter(owner=user).first()
     if row is not None:
-        return (row.check_email or "").strip()
+        if row.check_disabled:
+            return ""
+        if (row.check_email or "").strip():
+            return row.check_email.strip()
     return (getattr(user, "email", "") or "").strip()
+
+
+def chunk_recommended(user):
+    """Show the "send 50 at a time" advice for big lists? (on unless the person switched it off)"""
+    from .models import SenderSetting
+
+    row = SenderSetting.objects.filter(owner=user).first()
+    return True if row is None else row.recommend_chunks
 
 
 def _check_name(user, email):

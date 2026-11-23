@@ -27,7 +27,7 @@ from .utils import (
     send_certificate_email,
     store_template_copy,
 )
-from .update_utils import ensure_check_copy_student, get_check_email, ALLOWED_ATTACHMENT_EXTENSIONS, BATCH_SIZE, DAILY_LIMIT, IMAGE_EXTENSIONS, guess_content_type, rows_from_photo_emails, sent_last_24h
+from .update_utils import chunk_recommended, ensure_check_copy_student, get_check_email, ALLOWED_ATTACHMENT_EXTENSIONS, BATCH_SIZE, DAILY_LIMIT, IMAGE_EXTENSIONS, guess_content_type, rows_from_photo_emails, sent_last_24h
 
 
 logger = logging.getLogger(__name__)
@@ -110,6 +110,37 @@ def home(request):
 
 
 @login_required
+def settings_page(request):
+    """Small settings page (gear icon in the top bar): the 50-at-a-time advice and the check copy."""
+    from .models import SenderSetting
+
+    row = SenderSetting.objects.filter(owner=request.user).first()
+    if request.method == "POST":
+        email = (request.POST.get("check_email") or "").strip()
+        if email:
+            try:
+                validate_email(email)
+            except DjangoValidationError:
+                messages.error(request, "That email address doesn't look right. Check it and save again.")
+                return redirect("settings")
+        SenderSetting.objects.update_or_create(
+            owner=request.user,
+            defaults={
+                "check_email": email,
+                "check_disabled": not email,
+                "recommend_chunks": request.POST.get("recommend_chunks") == "on",
+            },
+        )
+        messages.success(request, "Settings saved.")
+        return redirect("settings")
+    return render(
+        request,
+        "certificates/settings.html",
+        {"check_email": get_check_email(request.user), "recommend_chunks": True if row is None else row.recommend_chunks},
+    )
+
+
+@login_required
 @require_POST
 def save_check_email(request):
     """Save the address that gets a copy of every send (blank = switch it off)."""
@@ -122,12 +153,20 @@ def save_check_email(request):
         except DjangoValidationError:
             messages.error(request, "That email address doesn't look right. Check it and save again.")
             return redirect("home")
-    SenderSetting.objects.update_or_create(owner=request.user, defaults={"check_email": email})
+    SenderSetting.objects.update_or_create(owner=request.user, defaults={"check_email": email, "check_disabled": not email})   # keeps the other settings as they are
     messages.success(
         request,
         f"Saved. {email} will get a copy of each send." if email else "Saved. No check copy will be added to your sends.",
     )
     return redirect("home")
+
+
+def _check_first(students, check_email):
+    """The list as shown on the page: your own check copy first, everyone else by name."""
+    rows = list(students)
+    if check_email:
+        rows.sort(key=lambda s: (0 if s.email.lower() == check_email.lower() else 1))   # stable: the rest keep name order
+    return rows
 
 
 CHUNK_THRESHOLD = 100   # above this many waiting people, recommend sending in rounds
@@ -190,6 +229,7 @@ def create_event(request):
                     messages.error(request, "No valid student rows found in that Excel sheet.")
                     return redirect("create_event")
                 Student.objects.bulk_create(good)
+                ensure_check_copy_student(event, request.user)    # your own address joins the list (delete it there if you don't want it)
                 request.session[f"import_report_event_{event.id}"] = {
                     "loaded": len(good),
                     "bad": bad[:50], "bad_n": len(bad),
@@ -197,6 +237,7 @@ def create_event(request):
                 }
                 messages.success(request, f"Imported {len(good)} students. Now position the name on your certificate.")
             else:
+                ensure_check_copy_student(event, request.user)
                 messages.success(request, "Event created! Now position the name on your certificate.")
             
             return redirect("position_certificate", event_id=event.id)
@@ -255,7 +296,7 @@ def student_list(request, event_id):
     students = event.students.all()
     pending_to_send = students.exclude(status="sent").count()
     # big lists: recommend sending CHUNK_SIZE at a time, with a break between rounds, to stay out of spam
-    chunk_mode = pending_to_send > CHUNK_THRESHOLD
+    chunk_mode = pending_to_send > CHUNK_THRESHOLD and chunk_recommended(request.user)
     last_sent = students.filter(status="sent").aggregate(m=Max("updated_at"))["m"]
     last_sent_min = int((timezone.now() - last_sent).total_seconds() // 60) if last_sent else None
     report = request.session.pop(f"import_report_event_{event.id}", None)
@@ -280,7 +321,7 @@ def student_list(request, event_id):
         "certificates/student_list.html",
         {
             "event": event,
-            "students": students,
+            "students": _check_first(students, get_check_email(request.user)),
             "pending_to_send": pending_to_send,
             "chunk_mode": chunk_mode,
             "chunk_size": CHUNK_SIZE,
@@ -379,7 +420,6 @@ def send_batch(request, event_id):
     """Send the next few certificates and report progress. The page calls this
     again and again until nothing is left, so no single request runs long."""
     event = get_object_or_404(Event, id=event_id, owner=request.user)
-    ensure_check_copy_student(event, request.user)      # your own address gets a copy, so you can check it arrived
     try:
         limit = max(0, min(int(request.POST.get("limit") or 0), 500))   # "send only this many" (the 50-at-a-time button)
     except ValueError:

@@ -1,0 +1,22 @@
+{% extends "certificates/base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="section-head"><h2>Settings</h2></div>
+<form method="post" class="form-card settings-card">
+  {% csrf_token %}
+  <div class="set-row">
+    <label class="set-switch" for="set-chunks">
+      <input type="checkbox" id="set-chunks" name="recommend_chunks" {% if recommend_chunks %}checked{% endif %}>
+      <span class="set-track" aria-hidden="true"><span class="set-knob"></span></span>
+      <span class="set-text"><b>Recommend sending 50 at a time</b>
+        <small>For lists above 100 people, Certify suggests 50 per round to keep mails out of spam. Switch it off to send 100, 200 or 400 in one go.</small></span>
+    </label>
+  </div>
+  <div class="set-row">
+    <label for="set-check"><b>Check copy email</b></label>
+    <input type="email" id="set-check" name="check_email" value="{{ check_email }}" placeholder="yourname@gmail.com" maxlength="254">
+    <small class="muted">Added to the top of every new participant list so you can check that mail was sent. You can delete it from a list. Clear this box to stop adding it.</small>
+  </div>
+  <div class="form-actions"><button type="submit" class="btn btn-primary">Save settings</button></div>
+</form>
+{% endblock %}
