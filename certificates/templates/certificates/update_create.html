@@ -18,7 +18,7 @@
 
   <label for="id_recipients_file">Recipient list <span class="muted">(file — or type emails below)</span></label>
   <div class="file-drop">
-    <input type="file" id="id_recipients_file" name="recipients_file" data-no-basket accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf">
+    <input type="file" id="id_recipients_file" name="recipients_file" accept=".xlsx,.xlsm,.xls,.csv,.txt,.pdf">
     <div class="file-drop-label">Drop your list here, or click to browse</div>
     <div class="file-drop-sub">Excel, CSV, TXT or PDF — emails can be in any column, headers not required</div>
   </div>
@@ -31,7 +31,7 @@
 
   <label for="id_attachments">Poster or photos <span class="muted">(optional)</span></label>
   <div class="file-drop">
-    <input type="file" id="id_attachments" name="attachments" data-basket-needs="#id_pasted_emails" multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt">
+    <input type="file" id="id_attachments" name="attachments" data-no-basket multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt">
     <div class="file-drop-label">Add your poster or photos — or skip this</div>
     <div class="file-drop-sub">Up to {{ max_attachments }} files, {{ max_mb }} MB in total. Sent as attachments with every mail.</div>
   </div>
