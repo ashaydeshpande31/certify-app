@@ -172,7 +172,7 @@
           t += dt;
           var x = vx * t, y = vy * t + 0.5 * G * t * t;
           pts.push({ t: t, x: x, y: y });
-          if (hitT === null && Math.hypot(ox + x - hx, oy + y - hy) < 34) { hitT = t; break; }
+          if (hitT === null && Math.hypot(ox + x - hx, oy + y - hy) < 30) { hitT = t; break; }
           if (vy * t + G * t * 0 < 0) apexSeen = true;
           if (y > 90 && t > 0.15) break;                  // fell back below where it started
         }
