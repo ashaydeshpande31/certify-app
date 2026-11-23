@@ -396,6 +396,7 @@ function toggleRecipientEdit(id) {
     try {
       while (true) {
         const d = await postWithRetry(sendUrl);
+        if (d.guest) { closeOverlay(); window.certifyGuestBlock(); return; }
         failedThisRun += d.failed;
         setBar(d.sent_total + d.failed_total);
         const quotaEl = document.getElementById('quota-used');

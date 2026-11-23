@@ -313,6 +313,7 @@ function toggleEditRow(studentId) {
       while (true) {
         const left = cap ? cap - attempted : 0;
         const d = await postWithRetry(first, left);
+        if (d.guest) { bd.hidden = true; document.body.style.overflow = ''; btn.disabled = false; if (everyone) everyone.disabled = false; window.certifyGuestBlock(); return; }
         first = false;
         attempted += d.sent + d.failed;
         setBar(d.sent_total + d.failed_total, d.total);

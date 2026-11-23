@@ -91,6 +91,7 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
+OWNER_CONTACT_URL = os.environ.get('OWNER_CONTACT_URL', 'https://www.linkedin.com/in/ashay-deshpande-554683387')
 LOGIN_URL = '/accounts/google/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
@@ -137,6 +138,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'certificates.guest.guest_context',
             ],
         },
     },

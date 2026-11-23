@@ -18,6 +18,7 @@ from django.utils import timezone
 from .forms import EventCreateForm
 from .models import DeletedEntry, Event, Student, UpdateCampaign
 from .fonts import FONT_FILES, font_catalog
+from .guest import BLOCK_MESSAGE, GUEST_MAX_ITEMS, guest_block_json, is_guest
 from .email_tools import suggest_email, tidy_name
 from .utils import (
     get_template_bytes,
@@ -177,6 +178,9 @@ CHUNK_SIZE = 50          # how many per round
 
 @login_required
 def create_event(request):
+    if request.method == "POST" and is_guest(request.user) and Event.objects.filter(owner=request.user).count() >= GUEST_MAX_ITEMS:
+        messages.error(request, "The demo allows %d events. Sign in to create more." % GUEST_MAX_ITEMS)
+        return redirect("home")
     if request.method == "POST":
         is_quick_send = request.POST.get("participant-mode") == "quick-send"
         form = EventCreateForm(request.POST, request.FILES, is_quick_send=is_quick_send)
@@ -462,6 +466,8 @@ def update_student(request, event_id, student_id):
 def send_batch(request, event_id):
     """Send the next few certificates and report progress. The page calls this
     again and again until nothing is left, so no single request runs long."""
+    if is_guest(request.user):
+        return JsonResponse(guest_block_json())
     event = get_object_or_404(Event, id=event_id, owner=request.user)
     try:
         limit = max(0, min(int(request.POST.get("limit") or 0), 500))   # "send only this many" (the 50-at-a-time button)
@@ -482,6 +488,9 @@ def send_batch(request, event_id):
 @login_required
 @require_POST
 def send_one(request, event_id, student_id):
+    if is_guest(request.user):
+        messages.error(request, BLOCK_MESSAGE)
+        return redirect("student_list", event_id=event_id)
     event = get_object_or_404(Event, id=event_id, owner=request.user)
     student = get_object_or_404(Student, id=student_id, event=event)
     ok, err = send_certificate_email(event, student, sender=request.user)

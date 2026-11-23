@@ -1,8 +1,10 @@
 from django.urls import path
-from . import views, update_views
+from . import views, update_views, guest
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("try/", guest.try_demo, name="try_demo"),
+    path("sign-in/", guest.sign_in, name="sign_in"),
     path("privacy/", views.privacy_policy, name="privacy_policy"),
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("terms/", views.terms_of_service, name="terms_of_service"),

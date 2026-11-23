@@ -7,6 +7,7 @@ import re
 import time
 
 from django.contrib import messages
+from .guest import GUEST_MAX_ITEMS, guest_block_json, is_guest
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
@@ -102,6 +103,10 @@ def update_create(request):
         "max_attachments": MAX_ATTACHMENTS,
         "max_mb": MAX_TOTAL_ATTACHMENT_BYTES // (1024 * 1024),
     }
+
+    if request.method == "POST" and is_guest(request.user) and UpdateCampaign.objects.filter(owner=request.user).count() >= GUEST_MAX_ITEMS:
+        messages.error(request, "The demo allows %d updates. Sign in to create more." % GUEST_MAX_ITEMS)
+        return redirect("home")
 
     if request.method != "POST":
         return render(request, "certificates/update_create.html", context)
@@ -269,6 +274,8 @@ def update_send_batch(request, campaign_id):
     """Sends one small batch and reports progress as JSON. The page calls this
     repeatedly until nothing is left — keeps every request short so Render
     never times out, even for 300+ people."""
+    if is_guest(request.user):
+        return JsonResponse(guest_block_json())
     campaign = get_object_or_404(UpdateCampaign, id=campaign_id, owner=request.user)
     result = send_update_batch(campaign, sender=request.user)
     result["sent_total"] = campaign.sent_count

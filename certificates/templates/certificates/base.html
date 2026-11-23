@@ -61,10 +61,11 @@
       <a href="{% url 'update_create' %}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg><span class="lbl-long">Send update</span><span class="lbl-short">Update</span></a>
       <button type="button" class="nav-link-btn" id="drawer-open"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="lbl-long">Check delivery</span><span class="lbl-short">Delivery</span></button>
       <a href="{% url 'create_event' %}" class="nav-cta"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl-long">Send certificate</span><span class="lbl-short">Certificate</span></a>
-      <span class="nav-user">{{ user.email|default:user.username }}</span>
+      <span class="nav-user">{% if is_guest %}Demo visitor{% else %}{{ user.email|default:user.username }}{% endif %}</span>
       <a href="{% url 'account_logout' %}" class="nav-out"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5V3h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Log out</span></a>
     </nav>
     {% else %}
+    <form method="post" action="{% url 'try_demo' %}" class="nav-try">{% csrf_token %}<button type="submit" class="btn btn-ghost btn-sm">Try without signing in</button></form>
     <a href="/accounts/google/login/?process=login" class="nav-cta nav-signin">Sign in with Google</a>
     {% endif %}
     {% if user.is_authenticated %}<a href="{% url 'settings' %}" class="theme-toggle settings-link" aria-label="Settings" title="Settings"><span aria-hidden="true">⚙️</span></a>{% endif %}
@@ -80,6 +81,12 @@
 </div>
 {% endif %}
 
+{% if is_guest %}
+<div class="guest-bar" role="status">
+  <span><b>Demo mode.</b> Try every step. Sending needs a sign-in.</span>
+  <span class="guest-bar-links"><a href="{% url 'sign_in' %}">Sign in with Google</a><a href="{{ owner_contact_url }}" target="_blank" rel="noopener">Contact owner</a></span>
+</div>
+{% endif %}
 <main class="page" id="main" tabindex="-1">
 {% block content %}{% endblock %}
 </main>
@@ -506,5 +513,33 @@
   })();
 </script>
 <script src="{% static 'certificates/js/basket.js' %}" defer></script>
+{% if is_guest %}
+<div class="guest-backdrop" id="guest-modal" hidden>
+  <div class="guest-modal" role="dialog" aria-modal="true" aria-labelledby="guest-title">
+    <h2 id="guest-title">Sign in required</h2>
+    <p>This is a demo, so nothing was sent. Certify sends from your own Gmail.</p>
+    <p>To use it for real, <b>contact the owner</b> to add your Gmail address as a test user, then sign in with Google.</p>
+    <div class="guest-actions">
+      <a class="btn btn-primary" href="{{ owner_contact_url }}" target="_blank" rel="noopener">Contact owner</a>
+      <a class="btn btn-ghost" href="{% url 'sign_in' %}">Sign in with Google</a>
+      <button type="button" class="btn btn-ghost" id="guest-close">Keep exploring</button>
+    </div>
+  </div>
+</div>
+<script>
+window.certifyGuestBlock = function () {
+  var m = document.getElementById('guest-modal'); if (!m) return;
+  m.hidden = false; document.body.style.overflow = 'hidden';
+  var c = document.getElementById('guest-close'); if (c) c.focus();
+};
+(function () {
+  var m = document.getElementById('guest-modal'), c = document.getElementById('guest-close');
+  function close() { m.hidden = true; document.body.style.overflow = ''; }
+  c.addEventListener('click', close);
+  m.addEventListener('click', function (e) { if (e.target === m) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !m.hidden) close(); });
+})();
+</script>
+{% endif %}
 </body>
 </html>

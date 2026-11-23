@@ -13,6 +13,7 @@
         <a href="{% url 'update_create' %}" class="btn btn-ghost">Send updates</a>
       {% else %}
         <a href="/accounts/google/login/?process=login" class="btn btn-primary">Sign in with Google</a>
+        <form method="post" action="{% url 'try_demo' %}" style="display:inline;">{% csrf_token %}<button type="submit" class="btn btn-ghost">Try it without signing in</button></form>
       {% endif %}
     </div>
     {% if user.is_authenticated %}
