@@ -272,7 +272,8 @@ def position_certificate(request, event_id):
         event.font_size = int(request.POST.get("font_size", 48))
         picked = request.POST.get("font_choice", "serif")
         event.font_choice = picked if picked in FONT_FILES or picked in ("serif", "sans", "script") else "serif"
-        event.font_color = request.POST.get("font_color", "#1B2A4A")
+        picked_color = request.POST.get("font_color", "#1B2A4A")
+        event.font_color = picked_color if re.fullmatch(r"#[0-9a-fA-F]{6}", picked_color) else "#1B2A4A"
         event.text_align = request.POST.get("text_align", "center")
         event.is_configured = True
         event.save()

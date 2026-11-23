@@ -555,7 +555,7 @@ input:focus, select:focus, textarea:focus, .file-drop:focus-within {
   padding: 22px;
 }
 .control-card h3 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 700; }
-.swatches { display: flex; gap: 8px; margin-top: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; box-shadow: 0 0 0 1px var(--ink-border); }
 .swatch.active { border-color: var(--text-hi); }
 .align-toggle { display: flex; gap: 8px; }
@@ -992,3 +992,8 @@ body::before { transform: translateZ(0); }
 .font-item.active{outline:2px solid var(--accent);outline-offset:-2px;background:rgba(127,127,127,.12);}
 .font-name{font-size:.78rem;opacity:.7;flex:0 0 auto;max-width:45%;}
 .font-sample{font-size:1.25rem;line-height:1.2;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.color-custom{display:flex;align-items:center;gap:10px;margin-top:10px;}
+.color-custom input[type=color]{width:38px;height:32px;padding:0;border:1px solid var(--ink-border);border-radius:8px;background:none;cursor:pointer;}
+.color-custom input[type=color].active{outline:2px solid var(--text-hi);outline-offset:2px;}
+.color-custom input[type=text]{width:96px;min-width:0;flex:0 0 auto;font-family:ui-monospace,Menlo,Consolas,monospace;}

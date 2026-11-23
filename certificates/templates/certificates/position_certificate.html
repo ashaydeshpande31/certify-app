@@ -63,11 +63,29 @@
 
       <label id="color-label">Color</label>
       <div class="swatches" id="color-swatches" role="group" aria-labelledby="color-label">
-        <button type="button" class="swatch active" style="background:#1B2A4A" data-color="#1B2A4A" aria-label="Navy" aria-pressed="true"></button>
-        <button type="button" class="swatch" style="background:#0D0D0D" data-color="#0D0D0D" aria-label="Black" aria-pressed="false"></button>
-        <button type="button" class="swatch" style="background:#C9A227" data-color="#C9A227" aria-label="Gold" aria-pressed="false"></button>
-        <button type="button" class="swatch" style="background:#7A1F1F" data-color="#7A1F1F" aria-label="Maroon" aria-pressed="false"></button>
-        <button type="button" class="swatch" style="background:#1F5C3F" data-color="#1F5C3F" aria-label="Green" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#1B2A4A" data-color="#1B2A4A" title="Navy" aria-label="Navy" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#0D0D0D" data-color="#0D0D0D" title="Black" aria-label="Black" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#3A3A3A" data-color="#3A3A3A" title="Charcoal" aria-label="Charcoal" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#5B6B7F" data-color="#5B6B7F" title="Slate" aria-label="Slate" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#C9A227" data-color="#C9A227" title="Gold" aria-label="Gold" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#8C5A2B" data-color="#8C5A2B" title="Bronze" aria-label="Bronze" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#7A1F1F" data-color="#7A1F1F" title="Maroon" aria-label="Maroon" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#C0392B" data-color="#C0392B" title="Crimson" aria-label="Crimson" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#E67E22" data-color="#E67E22" title="Orange" aria-label="Orange" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#1F5C3F" data-color="#1F5C3F" title="Forest" aria-label="Forest" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#27AE60" data-color="#27AE60" title="Emerald" aria-label="Emerald" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#0F7B7B" data-color="#0F7B7B" title="Teal" aria-label="Teal" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#2E86DE" data-color="#2E86DE" title="Sky" aria-label="Sky" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#1F3FBF" data-color="#1F3FBF" title="Royal blue" aria-label="Royal blue" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#4B3AA8" data-color="#4B3AA8" title="Indigo" aria-label="Indigo" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#7D3C98" data-color="#7D3C98" title="Purple" aria-label="Purple" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#B5338A" data-color="#B5338A" title="Magenta" aria-label="Magenta" aria-pressed="false"></button>
+        <button type="button" class="swatch" style="background:#FFFFFF" data-color="#FFFFFF" title="White" aria-label="White" aria-pressed="false"></button>
+      </div>
+      <div class="color-custom">
+        <label for="color_custom" class="muted" style="margin:0;font-size:.85rem;">Any colour</label>
+        <input type="color" id="color_custom" value="#1B2A4A" aria-label="Pick any colour">
+        <input type="text" id="color_hex" maxlength="7" value="#1B2A4A" aria-label="Colour hex code" spellcheck="false" autocomplete="off">
       </div>
 
       <label id="align-label">Alignment</label>
@@ -259,16 +277,35 @@ window.addEventListener('resize', updateMarkerFontSize);
   filter();
 })();
 
-document.querySelectorAll('.swatch').forEach(function (sw) {
-  sw.addEventListener('click', function () {
-    document.querySelectorAll('.swatch').forEach(s => { s.classList.remove('active'); s.setAttribute('aria-pressed', 'false'); });
-    this.classList.add('active');
-    this.setAttribute('aria-pressed', 'true');
-    marker.style.color = this.dataset.color;
-    colorHidden.value = this.dataset.color;
+(function () {
+  const sws = document.querySelectorAll('.swatch');
+  const picker = document.getElementById('color_custom');
+  const hexBox = document.getElementById('color_hex');
+  function setColor(c) {
+    c = c.toUpperCase();
+    marker.style.color = c;
+    colorHidden.value = c;
+    picker.value = c.toLowerCase();
+    hexBox.value = c;
+    let hit = false;
+    sws.forEach(function (s) {
+      const on = s.dataset.color.toUpperCase() === c;
+      s.classList.toggle('active', on);
+      s.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (on) hit = true;
+    });
+    picker.classList.toggle('active', !hit);
+  }
+  sws.forEach(function (sw) { sw.addEventListener('click', function () { setColor(this.dataset.color); }); });
+  picker.addEventListener('input', function () { setColor(this.value); });
+  hexBox.addEventListener('input', function () {
+    let v = this.value.trim();
+    if (v && v[0] !== '#') v = '#' + v;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) setColor(v);
   });
-});
-marker.style.color = colorHidden.value;
+  hexBox.addEventListener('blur', function () { this.value = colorHidden.value; });
+  setColor(/^#[0-9a-fA-F]{6}$/.test(colorHidden.value) ? colorHidden.value : '#1B2A4A');
+})();
 
 document.querySelectorAll('#align-toggle button').forEach(function (btn) {
   btn.addEventListener('click', function () {
