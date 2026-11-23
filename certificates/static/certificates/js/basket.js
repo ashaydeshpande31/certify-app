@@ -288,9 +288,16 @@
     // data-basket-needs="#id": the game only shows while that text box has something in it
     // (update page: only when emails are typed in, i.e. quick send, and a file is attached)
     var needEl = input.getAttribute && input.getAttribute('data-basket-needs') ? document.querySelector(input.getAttribute('data-basket-needs')) : null;
-    function allowed() { return !needEl || needEl.value.trim() !== ''; }
+    // data-basket-checked="selector": the game only shows while that radio / checkbox is ticked (certificate page: quick send)
+    var chkSel = input.getAttribute && input.getAttribute('data-basket-checked');
+    function allowed() {
+      if (needEl && needEl.value.trim() === '') return false;
+      if (chkSel) { var c = document.querySelector(chkSel); if (!c || !c.checked) return false; }
+      return true;
+    }
     var wasAllowed = allowed();
     if (needEl) needEl.addEventListener('input', function () { var a = allowed(); if (a !== wasAllowed) { wasAllowed = a; rebuild(); } });
+    if (chkSel) document.addEventListener('change', function () { var a = allowed(); if (a !== wasAllowed) { wasAllowed = a; rebuild(); } });
     var pscore = 0;
     input.addEventListener('change', rebuild);
     if (practice) rebuild();
