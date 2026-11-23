@@ -57,7 +57,7 @@
   inputs.forEach(function (input, idx) {
     var panel = el('div', 'bk-panel');
     panel.hidden = true;
-    var top = el('div', 'bk-top', '<span class="bk-top-title">Take the shot <small>(optional)</small></span><span class="bk-count" aria-hidden="true">Added <b>0</b></span>');
+    var top = el('div', 'bk-top', '<span class="bk-top-title">Take the shot <small>(optional)</small></span><span class="bk-count" aria-hidden="true">Score <b>0</b></span>');
     var countNum = top.querySelector('b');
     var hoopWrap = el('div', 'bk-hoop-wrap', HOOP);
     var cards = el('div', 'bk-cards');
@@ -77,7 +77,6 @@
       input._host.appendChild(panel);
       remove.hidden = true; remove.style.display = 'none';
       top.querySelector('.bk-top-title').innerHTML = 'Just for fun <small>(nothing here is sent)</small>';
-      top.querySelector('.bk-count').firstChild.nodeValue = 'Score ';
     } else {
       var anchor = input.closest('.file-drop') || input;
       anchor.parentNode.insertBefore(panel, anchor.nextSibling);
@@ -85,7 +84,7 @@
 
     var hoop = hoopWrap.querySelector('.bk-rim');
     var net = hoopWrap.querySelector('.bk-net');
-    var scored = 0, total = 0;
+    var scored = 0, total = 0, points = 0;
 
     function say() {
       if (!total) return;
@@ -119,30 +118,41 @@
         anim.onfinish = (function (n) { return function () { n.remove(); }; })(d);
       }
     }
+    function bump() {
+      countNum.textContent = points;
+      if (!reduce && top.animate) top.querySelector('.bk-count').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 400, easing: 'ease-out' });
+      plusOne('+1');
+      if (!reduce && net.animate) {
+        net.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(1.18) skewX(5deg)' }, { transform: 'scaleY(.94) skewX(-4deg)' }, { transform: 'scaleY(1)' }], { duration: 520, easing: 'ease-out' });
+        confetti();
+      }
+    }
+    function addPlayCard() {          // a fresh ball to shoot, so you can keep playing as long as you like
+      if (cards.querySelector('[data-play]')) return;
+      cards.appendChild(makeCard({ name: 'Play again', size: 0 }, true));
+    }
     function doFinish(card) {
-        card.classList.remove('dragging');
-        card.classList.add('in-basket');
-        card.style.transform = '';
-        card.style.opacity = '';
-        card.setAttribute('aria-label', card.dataset.name + ' is in the basket');
-        card.removeAttribute('tabindex');
-        scored++; say();
-        if (practice) { pscore++; countNum.textContent = pscore; } else countNum.textContent = scored;
-        var bar = card.querySelector('.bk-bar i'), hint = card.querySelector('.bk-hint');
-        card.classList.add('adding');
-        hint.textContent = 'Adding…';
-        var doneUp = function () { card.classList.remove('adding'); card.classList.add('added'); hint.textContent = 'Added ✓'; };
-        if (reduce) { doneUp(); } else {
-          setTimeout(function () { bar.style.width = '100%'; }, 30);
-          setTimeout(doneUp, 1000);
-          plusOne('+1');
-          if (top.animate) top.querySelector('.bk-count').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 400, easing: 'ease-out' });
-        }
-        if (practice) setTimeout(rebuild, 1700);
-        if (!reduce && net.animate) {
-          net.animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(1.18) skewX(5deg)' }, { transform: 'scaleY(.94) skewX(-4deg)' }, { transform: 'scaleY(1)' }], { duration: 520, easing: 'ease-out' });
-          confetti();
-        }
+      card.classList.remove('dragging');
+      card.classList.add('in-basket');
+      card.style.transform = '';
+      card.style.opacity = '';
+      card.removeAttribute('tabindex');
+      points++;
+      if (card.dataset.play) {                       // practice ball: score, then bring the next one
+        bump();
+        setTimeout(function () { card.remove(); }, 650);
+        setTimeout(addPlayCard, 800);
+        return;
+      }
+      card.setAttribute('aria-label', card.dataset.name + ' is in the basket');
+      scored++; say();
+      var bar = card.querySelector('.bk-bar i'), hint = card.querySelector('.bk-hint');
+      card.classList.add('adding');
+      hint.textContent = 'Adding…';
+      var doneUp = function () { card.classList.remove('adding'); card.classList.add('added'); hint.textContent = 'Added ✓'; };
+      if (reduce) doneUp(); else { setTimeout(function () { bar.style.width = '100%'; }, 30); setTimeout(doneUp, 1000); }
+      bump();
+      setTimeout(addPlayCard, 1500);
     }
     function score(card) {
       if (card.dataset.done) return;
@@ -169,13 +179,14 @@
       var h = hoopWrap.getBoundingClientRect(), pad = 26;
       return x > h.left - pad && x < h.right + pad && y > h.top - pad && y < h.bottom + pad;
     }
-    function makeCard(file) {
+    function makeCard(file, play) {
       var card = el('div', 'bk-card');
+      if (play) card.dataset.play = '1';
       card.tabIndex = 0;
       card.setAttribute('role', 'button');
       card.dataset.name = file.name;
       card.setAttribute('aria-label', file.name + '. Press Enter to drop it in the basket, or pull it back and let go to shoot.');
-      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + (file.size ? size(file.size) + ' · ' : '') + '<span class="bk-hint">Pull me back, let go to shoot</span></small></span><span class="bk-state"><span class="bk-bar"><i></i></span><span class="bk-check">✓</span></span>';
+      card.innerHTML = '<span class="bk-card-icon">' + DOC + '</span><span class="bk-card-text"><b>' + esc(file.name) + '</b><small>' + (file.size ? size(file.size) + ' · ' : '') + '<span class="bk-hint">' + (play ? 'Just for fun — shoot again' : 'Pull me back, let go to shoot') + '</span></small></span><span class="bk-state"><span class="bk-bar"><i></i></span><span class="bk-check">✓</span></span>';
       var ox = 0, oy = 0, vx = 0, vy = 0, pull = 0, active = false;
       var K = 6, G = 1400, MAXPULL = 170;               // slingshot: pull back, let go, it flies along the dots
       function trajectory(vx, vy) {
@@ -274,7 +285,7 @@
       cards.textContent = '';
       if (practice) {
         scored = 0; total = 1;
-        cards.appendChild(makeCard({ name: 'Practice file.pdf', size: 0 }));
+        cards.appendChild(makeCard({ name: 'Practice file', size: 0 }, true));
         panel.hidden = false; say();
         return;
       }
@@ -298,7 +309,6 @@
     var wasAllowed = allowed();
     if (needEl) needEl.addEventListener('input', function () { var a = allowed(); if (a !== wasAllowed) { wasAllowed = a; rebuild(); } });
     if (chkSel) document.addEventListener('change', function () { var a = allowed(); if (a !== wasAllowed) { wasAllowed = a; rebuild(); } });
-    var pscore = 0;
     input.addEventListener('change', rebuild);
     if (practice) rebuild();
     remove.addEventListener('click', function () {
