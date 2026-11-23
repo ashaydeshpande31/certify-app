@@ -6,7 +6,7 @@ import logging
 import re
 from io import BytesIO
 
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.http import Http404, HttpResponse, JsonResponse
 from PIL import Image
 from django.shortcuts import get_object_or_404, redirect, render
@@ -27,7 +27,7 @@ from .utils import (
     send_certificate_email,
     store_template_copy,
 )
-from .update_utils import ALLOWED_ATTACHMENT_EXTENSIONS, DAILY_LIMIT, IMAGE_EXTENSIONS, guess_content_type, rows_from_photo_emails, sent_last_24h
+from .update_utils import ALLOWED_ATTACHMENT_EXTENSIONS, BATCH_SIZE, DAILY_LIMIT, IMAGE_EXTENSIONS, guess_content_type, rows_from_photo_emails, sent_last_24h
 
 
 logger = logging.getLogger(__name__)
@@ -99,6 +99,10 @@ def home(request):
         events = Event.objects.none()
         update_campaigns = UpdateCampaign.objects.none()
     return render(request, "certificates/home.html", {"events": events, "update_campaigns": update_campaigns})
+
+
+CHUNK_THRESHOLD = 100   # above this many waiting people, recommend sending in rounds
+CHUNK_SIZE = 50          # how many per round
 
 
 @login_required
@@ -221,6 +225,10 @@ def student_list(request, event_id):
     event = get_object_or_404(Event, id=event_id, owner=request.user)
     students = event.students.all()
     pending_to_send = students.exclude(status="sent").count()
+    # big lists: recommend sending CHUNK_SIZE at a time, with a break between rounds, to stay out of spam
+    chunk_mode = pending_to_send > CHUNK_THRESHOLD
+    last_sent = students.filter(status="sent").aggregate(m=Max("updated_at"))["m"]
+    last_sent_min = int((timezone.now() - last_sent).total_seconds() // 60) if last_sent else None
     report = request.session.pop(f"import_report_event_{event.id}", None)
     typos = []
     for st in students.exclude(status="sent"):
@@ -245,6 +253,10 @@ def student_list(request, event_id):
             "event": event,
             "students": students,
             "pending_to_send": pending_to_send,
+            "chunk_mode": chunk_mode,
+            "chunk_size": CHUNK_SIZE,
+            "chunk_rounds": -(-pending_to_send // CHUNK_SIZE),
+            "last_sent_min": last_sent_min,
             "extra_count": students.filter(send_extra=True).count() if event.extra_name else 0,
             "report": report,
             "typos": typos,
@@ -338,7 +350,13 @@ def send_batch(request, event_id):
     """Send the next few certificates and report progress. The page calls this
     again and again until nothing is left, so no single request runs long."""
     event = get_object_or_404(Event, id=event_id, owner=request.user)
-    result = send_certificate_batch(event, request.user, start=request.POST.get("start") == "1")
+    try:
+        limit = max(0, min(int(request.POST.get("limit") or 0), 500))   # "send only this many" (the 50-at-a-time button)
+    except ValueError:
+        limit = 0
+    result = send_certificate_batch(
+        event, request.user, batch_size=(min(limit, BATCH_SIZE) if limit else None), start=request.POST.get("start") == "1"
+    )
     students = event.students
     result["total"] = students.count()
     result["sent_total"] = students.filter(status="sent").count()

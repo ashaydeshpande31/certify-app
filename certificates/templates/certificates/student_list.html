@@ -11,12 +11,23 @@
   </div>
   <div class="toolbar-actions">
     <button type="button" class="btn btn-ghost" data-check-kind="certificate" data-check-id="{{ event.id }}" data-check-title="{{ event.name }}">Check who got it</button>
-    <button type="button" class="btn btn-primary" id="send-all" data-url="{% url 'send_batch' event.id %}" data-pending="{{ pending_to_send }}" {% if not pending_to_send %}disabled{% endif %}>
-      {% if pending_to_send %}Send certificates to {{ pending_to_send }} →{% else %}Everyone has their certificate{% endif %}
+    <button type="button" class="btn btn-primary" id="send-all" data-url="{% url 'send_batch' event.id %}" data-pending="{% if chunk_mode %}{{ chunk_size }}{% else %}{{ pending_to_send }}{% endif %}" data-total-pending="{{ pending_to_send }}" {% if chunk_mode %}data-limit="{{ chunk_size }}"{% endif %} {% if not pending_to_send %}disabled{% endif %}>
+      {% if chunk_mode %}Send next {{ chunk_size }} →{% elif pending_to_send %}Send certificates to {{ pending_to_send }} →{% else %}Everyone has their certificate{% endif %}
     </button>
+    {% if chunk_mode %}
+    <button type="button" class="btn btn-ghost" id="send-everyone" title="Not recommended for big lists">Send all {{ pending_to_send }}</button>
+    {% endif %}
   </div>
 </div>
 
+
+{% if chunk_mode %}
+<div class="form-card list-check" style="margin-bottom:24px; max-width:none;" role="note">
+  <div class="lc-title">{{ pending_to_send }} people are waiting — send {{ chunk_size }} at a time</div>
+  <p class="muted" style="margin:4px 0 0;">Sending hundreds of mails at once from a personal Gmail can push them into spam. Send {{ chunk_size }}, wait about an hour, then send the next {{ chunk_size }}. That is {{ chunk_rounds }} rounds for everyone on this list. Anyone you don't send now stays waiting, nothing is lost.
+  {% if last_sent_min is not None %}<br><b>Last mail went out {% if last_sent_min < 1 %}just now{% elif last_sent_min < 60 %}{{ last_sent_min }} min ago{% else %}over an hour ago{% endif %}.</b>{% if last_sent_min < 45 %} Give it a little longer before the next round.{% else %} Good time for the next round.{% endif %}{% endif %}</p>
+</div>
+{% endif %}
 
 {% if template_missing %}
 <div class="form-card list-check is-typo" role="alert" style="margin-bottom:24px; max-width:none;">
@@ -235,6 +246,7 @@ function toggleEditRow(studentId) {
   const btn = document.getElementById('send-all');
   if (!btn) return;
   const url = btn.dataset.url;
+  const everyone = document.getElementById('send-everyone');
   const bd = document.getElementById('cp-backdrop');
   const line = document.getElementById('cp-line');
   const note = document.getElementById('cp-note');
@@ -249,17 +261,18 @@ function toggleEditRow(studentId) {
     fill.style.width = pct + '%';
     bar.setAttribute('aria-valuenow', pct);
   }
-  async function post(start) {
+  async function post(start, limit) {
     const body = new URLSearchParams();
     if (start) body.set('start', '1');
+    if (limit) body.set('limit', String(limit));
     const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body });
     if (!r.ok) throw new Error('The server answered with status ' + r.status);
     return r.json();
   }
-  async function postWithRetry(start) {
+  async function postWithRetry(start, limit) {
     let last;
     for (let i = 0; i < 3; i++) {
-      try { return await post(start); } catch (e) { last = e; await new Promise(function (res) { setTimeout(res, 4000); }); }
+      try { return await post(start, limit); } catch (e) { last = e; await new Promise(function (res) { setTimeout(res, 4000); }); }
     }
     throw last;
   }
@@ -269,21 +282,28 @@ function toggleEditRow(studentId) {
   }
   closeBtn.addEventListener('click', function () { window.location.reload(); });
 
-  async function run() {
-    btn.disabled = true;
+  async function run(cap) {          // cap = only send this many this time (0 = everyone)
+    btn.disabled = true; if (everyone) everyone.disabled = true;
+    let attempted = 0;
     bd.hidden = false; document.body.style.overflow = 'hidden';
     closeBtn.hidden = true; title.textContent = 'Sending certificates';
     let first = true;
     try {
       while (true) {
-        const d = await postWithRetry(first);
+        const left = cap ? cap - attempted : 0;
+        const d = await postWithRetry(first, left);
         first = false;
+        attempted += d.sent + d.failed;
         setBar(d.sent_total + d.failed_total, d.total);
         line.textContent = 'Sent ' + d.sent_total + ' of ' + d.total + (d.failed_total ? ' · ' + d.failed_total + ' failed' : '');
         note.textContent = 'Keep this page open until it finishes. Gmail usage in the last 24 hours: ' + d.used_24h + ' of about ' + d.daily_limit + '.';
         document.dispatchEvent(new CustomEvent('quota:update', { detail: { used: d.used_24h, limit: d.daily_limit } }));
         if (d.stop) { finish('Sending paused', 'Sent ' + d.sent_total + ' of ' + d.total, d.error); return; }
         if (!d.remaining) break;
+        if (cap && attempted >= cap) {
+          finish(cap + ' sent', d.remaining + ' people still waiting', 'Wait about an hour, then press "Send next ' + cap + '" again. Waiting people keep their place, nothing is lost.');
+          return;
+        }
         if (d.sent === 0 && d.failed === 0) {
           finish('Another send is running', 'Sent ' + d.sent_total + ' of ' + d.total, 'Reloading in a moment to show the latest status.');
           setTimeout(function () { window.location.reload(); }, 4000);
@@ -299,7 +319,14 @@ function toggleEditRow(studentId) {
     const n = parseInt(btn.dataset.pending, 10) || 0;
     if (!n) return;
     const ok = await window.certifyConfirmSend(n, 'certificates');
-    if (ok) run();
+    if (ok) run(parseInt(btn.dataset.limit, 10) || 0);
+  });
+  if (everyone) everyone.addEventListener('click', async function () {
+    const n = parseInt(btn.dataset.totalPending, 10) || 0;
+    if (!n) return;
+    if (!window.confirm('Sending all ' + n + ' at once is more likely to be marked as spam. Send everything anyway?')) return;
+    const ok = await window.certifyConfirmSend(n, 'certificates');
+    if (ok) run(0);
   });
 })();
 </script>
