@@ -83,6 +83,7 @@ def home(request):
         # counts come from the same query (no extra query per card)
         events = (
             Event.objects.filter(owner=request.user)
+            .defer("template_data", "extra_data")      # big image blobs are not needed to list events
             .annotate(n_students=Count("students", distinct=True), n_sent=Count("students", filter=Q(students__status="sent"), distinct=True))
             .order_by("-created_at")
         )
@@ -292,16 +293,18 @@ def position_certificate(request, event_id):
 
 @login_required
 def student_list(request, event_id):
-    event = get_object_or_404(Event, id=event_id, owner=request.user)
-    students = event.students.all()
-    pending_to_send = students.exclude(status="sent").count()
+    event = get_object_or_404(Event.objects.defer("extra_data"), id=event_id, owner=request.user)
+    students = list(event.students.all())            # one query; everything below works on this list
+    pending_to_send = sum(1 for s in students if s.status != "sent")
+    sent_n = sum(1 for s in students if s.status == "sent")
     # big lists: recommend sending CHUNK_SIZE at a time, with a break between rounds, to stay out of spam
     chunk_mode = pending_to_send > CHUNK_THRESHOLD and chunk_recommended(request.user)
-    last_sent = students.filter(status="sent").aggregate(m=Max("updated_at"))["m"]
+    last_sent = max((s.updated_at for s in students if s.status == "sent"), default=None)
     last_sent_min = int((timezone.now() - last_sent).total_seconds() // 60) if last_sent else None
     report = request.session.pop(f"import_report_event_{event.id}", None)
     typos = []
-    for st in students.exclude(status="sent"):
+    waiting = [s for s in students if s.status != "sent"]
+    for st in waiting:
         fix = suggest_email(st.email)
         if fix:
             typos.append({"id": st.id, "name": st.name, "email": st.email, "fix": fix})
@@ -310,7 +313,7 @@ def student_list(request, event_id):
     try:
         width = Image.open(BytesIO(get_template_bytes(event))).size[0]
         if event.is_configured:
-            shrunk = name_needs_shrink(event, width, [st.name for st in students.exclude(status="sent")])
+            shrunk = name_needs_shrink(event, width, [st.name for st in waiting])
     except ValueError:
         template_missing = True
     except Exception:  # noqa: BLE001 - unreadable image
@@ -327,7 +330,9 @@ def student_list(request, event_id):
             "chunk_size": CHUNK_SIZE,
             "chunk_rounds": -(-pending_to_send // CHUNK_SIZE),
             "last_sent_min": last_sent_min,
-            "extra_count": students.filter(send_extra=True).count() if event.extra_name else 0,
+            "extra_count": sum(1 for s in students if s.send_extra) if event.extra_name else 0,
+            "total_n": len(students),
+            "sent_n": sent_n,
             "report": report,
             "typos": typos,
             "template_missing": template_missing,

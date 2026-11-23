@@ -196,7 +196,8 @@ def update_detail(request, campaign_id):
     left = max(DAILY_LIMIT - used, 0)
     report = request.session.pop(f"import_report_{campaign.id}", None)
     typos = []
-    for r in campaign.recipients.exclude(status="sent"):
+    rows = list(campaign.recipients.all())               # one query, reused below
+    for r in (x for x in rows if x.status != "sent"):
         fix = suggest_email(r.email)
         if fix:
             typos.append({"id": r.id, "name": r.name, "email": r.email, "fix": fix})
@@ -210,15 +211,15 @@ def update_detail(request, campaign_id):
             "daily_limit": DAILY_LIMIT,
             "quota_left": left,
             "quota_pct": min(100, round(used * 100 / DAILY_LIMIT)) if DAILY_LIMIT else 0,
-            "over_quota": campaign.pending_count > left,
+            "over_quota": sum(1 for x in rows if x.status in ("pending", "sending")) > left,
             "cron_ready": bool(os.environ.get("CRON_SECRET")),
             "campaign": campaign,
-            "recipients": campaign.recipients.all(),
-            "attachments": campaign.attachments.all(),
-            "total": campaign.total,
-            "sent_count": campaign.sent_count,
-            "failed_count": campaign.failed_count,
-            "pending_count": campaign.pending_count,
+            "recipients": rows,
+            "attachments": campaign.attachments.defer("data"),      # file bytes are not needed to list names
+            "total": len(rows),
+            "sent_count": sum(1 for x in rows if x.status == "sent"),
+            "failed_count": sum(1 for x in rows if x.status == "failed"),
+            "pending_count": sum(1 for x in rows if x.status in ("pending", "sending")),
         },
     )
 

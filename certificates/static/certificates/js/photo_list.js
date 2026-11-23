@@ -71,12 +71,12 @@
         if (mine === token) set('error');
       });
     });
-    // warm the reader up in the background (not on data-saver / slow links) so the first photo is quick
-    var c = navigator.connection || {};
-    if (!c.saveData && (!c.effectiveType || c.effectiveType === '4g')) {
-      var warm = function () { getWorker().catch(function () {}); };
-      if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 }); else setTimeout(warm, 2500);
-    }
+    // Start fetching the reader only when the person reaches for the file picker (the dialog takes a few
+    // seconds anyway), never in the background of every page view: it is a ~6 MB download.
+    var warmed = false;
+    function warm() { if (warmed) return; warmed = true; getWorker().catch(function () { warmed = false; }); }
+    var zone = input.closest('.file-drop') || input;
+    ['pointerdown', 'focus', 'keydown'].forEach(function (ev) { zone.addEventListener(ev, warm, { once: true, passive: true }); });
   }
 
   // one place for the wording shown under the list picker

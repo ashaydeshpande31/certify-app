@@ -1,5 +1,6 @@
 import base64
 import csv
+import functools
 import os
 import re
 from email.mime.base import MIMEBase
@@ -189,18 +190,30 @@ def parse_excel(excel_field):
     return students
 
 
-def get_font(event, size=None):
-    size = size or event.font_size
-    candidates = [
-        "C:/Windows/Fonts/georgiab.ttf",
-        "C:/Windows/Fonts/timesbd.ttf",
-        "C:/Windows/Fonts/arialbd.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-    ]
-    for path in candidates:
+_FONT_CANDIDATES = (
+    "C:/Windows/Fonts/georgiab.ttf",
+    "C:/Windows/Fonts/timesbd.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+)
+
+
+@functools.lru_cache(maxsize=1)
+def _font_path():
+    for path in _FONT_CANDIDATES:
         if os.path.exists(path):
-            return ImageFont.truetype(path, size)
-    return ImageFont.load_default(size=size)
+            return path
+    return ""
+
+
+@functools.lru_cache(maxsize=256)
+def _load_font(path, size):
+    """Opening a font file is slow; do it once per size, not once per name."""
+    return ImageFont.truetype(path, size) if path else ImageFont.load_default(size=size)
+
+
+def get_font(event, size=None):
+    return _load_font(_font_path(), int(size or event.font_size))
 
 
 def hex_to_rgb(hex_color):
@@ -283,10 +296,24 @@ def get_template_bytes(event):
         )
 
 
+_BASE_CACHE = {"key": None, "img": None}
+
+
+def _decoded_template(event):
+    """The design image, decoded once and reused for every certificate of a batch
+    (decoding a big PNG for each of 400 mails is what made sending slow)."""
+    data = get_template_bytes(event)
+    key = (event.id, len(data), data[:48], data[-48:])
+    if _BASE_CACHE["key"] != key:
+        _BASE_CACHE["img"] = Image.open(BytesIO(data)).convert("RGB")
+        _BASE_CACHE["key"] = key
+    return _BASE_CACHE["img"].copy()
+
+
 def render_certificate_image(event, student_name):
     """Return a PIL Image with the student's name drawn onto the event template.
     Long names shrink so they stay inside the certificate."""
-    base = Image.open(BytesIO(get_template_bytes(event))).convert("RGB")
+    base = _decoded_template(event)
 
     draw = ImageDraw.Draw(base)
     w, h = base.size
